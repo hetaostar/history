@@ -1,0 +1,317 @@
+import { defineStore } from 'pinia'
+import { createId } from '@/domain/createId'
+import {
+  createEmptyHistoryData,
+  parseHistoryData,
+} from '@/domain/historySchema'
+import type {
+  IHistoryData,
+  IHistoryEvent,
+  IPerson,
+  IStudyCard,
+  IStudyRecord,
+  ITimeline,
+  StudyResult,
+  StudyTargetType,
+} from '@/domain/historyTypes'
+
+const STORAGE_KEY = 'history-memorization:data'
+const SAVE_ERROR_MESSAGE = '本地保存失败，请重试或先导出当前数据。'
+
+type TimelineInput = Pick<ITimeline, 'name' | 'description' | 'tags'>
+type EventInput = Omit<IHistoryEvent, 'id' | 'createdAt' | 'updatedAt'>
+type PersonInput = Omit<IPerson, 'id' | 'createdAt' | 'updatedAt'>
+type CardInput = Omit<IStudyCard, 'id' | 'createdAt' | 'updatedAt'>
+type HistoryState = IHistoryData & {
+  lastError: string
+}
+
+export const useHistoryStore = defineStore('history', {
+  state: (): HistoryState => ({
+    ...loadHistoryData(),
+    lastError: '',
+  }),
+  actions: {
+    createTimeline(input: TimelineInput): ITimeline {
+      const timeline: ITimeline = {
+        id: createId(),
+        ...input,
+        createdAt: now(),
+        updatedAt: now(),
+      }
+      this.timelines.push(timeline)
+      this.persist()
+      return timeline
+    },
+    updateTimeline(id: string, input: TimelineInput): ITimeline | undefined {
+      const timeline = this.timelines.find((item) => item.id === id)
+      if (!timeline) {
+        return undefined
+      }
+
+      Object.assign(timeline, {
+        ...input,
+        updatedAt: now(),
+      })
+      this.persist()
+      return timeline
+    },
+    deleteTimeline(id: string): boolean {
+      const eventIds = this.events
+        .filter((event) => event.timelineId === id)
+        .map((event) => event.id)
+      const eventIdSet = new Set(eventIds)
+      const initialLength = this.timelines.length
+
+      this.timelines = this.timelines.filter((timeline) => timeline.id !== id)
+      this.events = this.events.filter((event) => event.timelineId !== id)
+      this.cards.forEach((card) => {
+        card.eventIds = card.eventIds.filter((eventId) => !eventIdSet.has(eventId))
+      })
+      this.studyRecords = this.studyRecords.filter(
+        (record) =>
+          record.targetType !== 'event' || !eventIdSet.has(record.targetId),
+      )
+      this.persist()
+      return this.timelines.length !== initialLength
+    },
+    createEvent(input: EventInput): IHistoryEvent {
+      const event: IHistoryEvent = {
+        id: createId(),
+        ...input,
+        sortValue: getTimeSortValue(input.timeLabel),
+        personIds: input.personIds ?? [],
+        createdAt: now(),
+        updatedAt: now(),
+      }
+      this.events.push(event)
+      this.persist()
+      return event
+    },
+    updateEvent(id: string, input: EventInput): IHistoryEvent | undefined {
+      const event = this.events.find((item) => item.id === id)
+      if (!event) {
+        return undefined
+      }
+
+      Object.assign(event, {
+        ...input,
+        sortValue: getTimeSortValue(input.timeLabel),
+        personIds: input.personIds ?? [],
+        updatedAt: now(),
+      })
+      this.persist()
+      return event
+    },
+    deleteEvent(id: string): boolean {
+      const initialLength = this.events.length
+
+      this.events = this.events.filter((event) => event.id !== id)
+      this.cards.forEach((card) => {
+        card.eventIds = card.eventIds.filter((eventId) => eventId !== id)
+      })
+      this.studyRecords = this.studyRecords.filter(
+        (record) => record.targetType !== 'event' || record.targetId !== id,
+      )
+      this.persist()
+      return this.events.length !== initialLength
+    },
+    createPerson(input: PersonInput): IPerson {
+      const person: IPerson = {
+        id: createId(),
+        ...input,
+        createdAt: now(),
+        updatedAt: now(),
+      }
+      this.people.push(person)
+      this.persist()
+      return person
+    },
+    updatePerson(id: string, input: PersonInput): IPerson | undefined {
+      const person = this.people.find((item) => item.id === id)
+      if (!person) {
+        return undefined
+      }
+
+      Object.assign(person, {
+        ...input,
+        updatedAt: now(),
+      })
+      this.persist()
+      return person
+    },
+    deletePerson(id: string): boolean {
+      const initialLength = this.people.length
+
+      this.people = this.people.filter((person) => person.id !== id)
+      this.events.forEach((event) => {
+        event.personIds = event.personIds.filter((personId) => personId !== id)
+      })
+      this.cards.forEach((card) => {
+        card.personIds = card.personIds.filter((personId) => personId !== id)
+      })
+      this.studyRecords = this.studyRecords.filter(
+        (record) => record.targetType !== 'person' || record.targetId !== id,
+      )
+      this.persist()
+      return this.people.length !== initialLength
+    },
+    createCard(input: CardInput): IStudyCard {
+      const card: IStudyCard = {
+        id: createId(),
+        ...input,
+        personIds: input.personIds ?? [],
+        eventIds: input.eventIds ?? [],
+        createdAt: now(),
+        updatedAt: now(),
+      }
+      this.cards.push(card)
+      this.persist()
+      return card
+    },
+    updateCard(id: string, input: CardInput): IStudyCard | undefined {
+      const card = this.cards.find((item) => item.id === id)
+      if (!card) {
+        return undefined
+      }
+
+      Object.assign(card, {
+        ...input,
+        personIds: input.personIds ?? [],
+        eventIds: input.eventIds ?? [],
+        updatedAt: now(),
+      })
+      this.persist()
+      return card
+    },
+    deleteCard(id: string): boolean {
+      const initialLength = this.cards.length
+
+      this.cards = this.cards.filter((card) => card.id !== id)
+      this.studyRecords = this.studyRecords.filter(
+        (record) => record.targetType !== 'card' || record.targetId !== id,
+      )
+      this.persist()
+      return this.cards.length !== initialLength
+    },
+    recordStudy(
+      targetType: StudyTargetType,
+      targetId: string,
+      result: StudyResult,
+    ): IStudyRecord {
+      const record: IStudyRecord = {
+        id: createId(),
+        targetType,
+        targetId,
+        result,
+        createdAt: now(),
+      }
+      this.studyRecords.push(record)
+      this.persist()
+      return record
+    },
+    replaceAll(data: unknown): void {
+      const parsed = parseHistoryData(data)
+      this.timelines = parsed.timelines
+      this.events = parsed.events
+      this.people = parsed.people
+      this.cards = parsed.cards
+      this.studyRecords = parsed.studyRecords
+      this.persist()
+    },
+    persist(): boolean {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            timelines: this.timelines,
+            events: this.events,
+            people: this.people,
+            cards: this.cards,
+            studyRecords: this.studyRecords,
+          }),
+        )
+        this.lastError = ''
+        return true
+      } catch {
+        this.lastError = SAVE_ERROR_MESSAGE
+        return false
+      }
+    },
+    eventsByTimeline(timelineId: string): IHistoryEvent[] {
+      return this.events
+        .filter((event) => event.timelineId === timelineId)
+        .sort((a, b) => getTimeSortValue(a.timeLabel) - getTimeSortValue(b.timeLabel))
+    },
+    eventsByPerson(personId: string): IHistoryEvent[] {
+      return this.events.filter((event) => event.personIds.includes(personId))
+    },
+    search(query: string) {
+      const keyword = query.trim().toLowerCase()
+      const includes = (values: string[]) =>
+        values.some((value) => value.toLowerCase().includes(keyword))
+
+      if (!keyword) {
+        return { timelines: [], events: [], people: [], cards: [] }
+      }
+
+      return {
+        timelines: this.timelines.filter((timeline) =>
+          includes([timeline.name, timeline.description, ...timeline.tags]),
+        ),
+        events: this.events.filter((event) =>
+          includes([
+            event.timeLabel,
+            event.title,
+            event.hint,
+            event.summary,
+            event.detail,
+            ...event.keywords,
+          ]),
+        ),
+        people: this.people.filter((person) =>
+          includes([
+            person.name,
+            person.lifeTime,
+            person.summary,
+            person.biography,
+            person.achievements,
+            ...person.keywords,
+          ]),
+        ),
+        cards: this.cards.filter((card) =>
+          includes([card.front, card.back, ...card.keywords]),
+        ),
+      }
+    },
+  },
+})
+
+function loadHistoryData(): IHistoryData {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (!raw) {
+    return createEmptyHistoryData()
+  }
+
+  try {
+    return parseHistoryData(JSON.parse(raw))
+  } catch {
+    return createEmptyHistoryData()
+  }
+}
+
+function now(): string {
+  return new Date().toISOString()
+}
+
+function getTimeSortValue(timeLabel: string): number {
+  const matchedYear = timeLabel.match(/\d+/)
+  if (!matchedYear) {
+    return Number.MAX_SAFE_INTEGER
+  }
+
+  const year = Number(matchedYear[0])
+  const isBeforeCommonEra = /公元前|前/.test(timeLabel)
+
+  return isBeforeCommonEra ? -year : year
+}

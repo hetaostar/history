@@ -1,0 +1,222 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import { useHistoryStore } from '@/stores/historyStore'
+
+const store = useHistoryStore()
+const query = ref('')
+
+const results = computed(() => store.search(query.value))
+const hasQuery = computed(() => query.value.trim().length > 0)
+const hasResults = computed(() => {
+  return (
+    results.value.people.length > 0 ||
+    results.value.timelines.length > 0 ||
+    results.value.events.length > 0 ||
+    results.value.cards.length > 0
+  )
+})
+
+function getTimelineName(timelineId: string): string {
+  return (
+    store.timelines.find((timeline) => timeline.id === timelineId)?.name ??
+    '未找到所属时间线'
+  )
+}
+</script>
+
+<template>
+  <section class="page">
+    <header class="page-header">
+      <h1>搜索</h1>
+      <p>检索人物、时间线、历史事件和背诵卡片。</p>
+    </header>
+
+    <section class="panel search-panel">
+      <label>
+        搜索关键词
+        <input
+          v-model="query"
+          type="search"
+          placeholder="输入人物、事件、关键词或卡片内容"
+          autofocus
+        />
+      </label>
+    </section>
+
+    <p v-if="!hasQuery" class="empty-message">请输入关键词开始搜索。</p>
+    <p v-else-if="!hasResults" class="empty-message">没有找到匹配结果。</p>
+
+    <section v-if="hasResults" class="result-layout" aria-label="搜索结果">
+      <section class="result-group">
+        <h2>人物</h2>
+        <p v-if="results.people.length === 0" class="empty-message">
+          没有匹配人物。
+        </p>
+        <RouterLink
+          v-for="person in results.people"
+          :key="person.id"
+          class="result-card result-link"
+          :to="`/people/${person.id}`"
+        >
+          <strong>{{ person.name }}</strong>
+          <span v-if="person.lifeTime">{{ person.lifeTime }}</span>
+          <span v-if="person.summary">{{ person.summary }}</span>
+        </RouterLink>
+      </section>
+
+      <section class="result-group">
+        <h2>时间线</h2>
+        <p v-if="results.timelines.length === 0" class="empty-message">
+          没有匹配时间线。
+        </p>
+        <RouterLink
+          v-for="timeline in results.timelines"
+          :key="timeline.id"
+          class="result-card result-link"
+          :to="`/timelines/${timeline.id}`"
+        >
+          <strong>{{ timeline.name }}</strong>
+          <span v-if="timeline.description">{{ timeline.description }}</span>
+          <span v-if="timeline.tags.length" class="tag-list">
+            <span v-for="tag in timeline.tags" :key="tag" class="tag">
+              {{ tag }}
+            </span>
+          </span>
+        </RouterLink>
+      </section>
+
+      <section class="result-group">
+        <h2>历史事件</h2>
+        <p v-if="results.events.length === 0" class="empty-message">
+          没有匹配事件。
+        </p>
+        <article
+          v-for="event in results.events"
+          :key="event.id"
+          class="result-card"
+        >
+          <strong>{{ event.timeLabel }}：{{ event.title }}</strong>
+          <span>所属时间线：{{ getTimelineName(event.timelineId) }}</span>
+          <p v-if="event.summary">{{ event.summary }}</p>
+          <p v-if="event.detail">{{ event.detail }}</p>
+          <span v-if="event.keywords.length" class="tag-list">
+            <span v-for="keyword in event.keywords" :key="keyword" class="tag">
+              {{ keyword }}
+            </span>
+          </span>
+        </article>
+      </section>
+
+      <section class="result-group">
+        <h2>背诵卡片</h2>
+        <p v-if="results.cards.length === 0" class="empty-message">
+          没有匹配卡片。
+        </p>
+        <article
+          v-for="card in results.cards"
+          :key="card.id"
+          class="result-card"
+        >
+          <strong>正面：{{ card.front }}</strong>
+          <p>背面：{{ card.back }}</p>
+          <span v-if="card.keywords.length" class="tag-list">
+            <span v-for="keyword in card.keywords" :key="keyword" class="tag">
+              {{ keyword }}
+            </span>
+          </span>
+        </article>
+      </section>
+    </section>
+  </section>
+</template>
+
+<style scoped>
+.page {
+  display: grid;
+  gap: 24px;
+}
+
+.page-header,
+.panel,
+.result-group,
+.result-card {
+  display: grid;
+  gap: 16px;
+}
+
+.page-header p,
+.empty-message,
+.result-card p {
+  margin: 0;
+  color: #64708a;
+}
+
+.panel,
+.result-card {
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e2e6f2;
+  border-radius: 18px;
+}
+
+.search-panel label {
+  display: grid;
+  gap: 8px;
+  color: #405173;
+  font-weight: 700;
+}
+
+.search-panel input {
+  width: 100%;
+  padding: 10px 12px;
+  color: #172033;
+  border: 1px solid #cfd6e6;
+  border-radius: 12px;
+}
+
+.result-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.result-group {
+  align-content: start;
+}
+
+.result-group h2 {
+  margin: 0;
+}
+
+.result-card {
+  box-shadow: 0 8px 24px rgb(35 45 90 / 8%);
+}
+
+.result-card strong {
+  color: #172033;
+  font-size: 18px;
+}
+
+.result-card span {
+  color: #405173;
+}
+
+.result-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  padding: 4px 10px;
+  color: #445ce3;
+  background: #eef1ff;
+  border-radius: 999px;
+}
+</style>
