@@ -116,6 +116,11 @@ function closeBatchDelete() {
   errorMessage.value = ''
 }
 
+function toggleCreateForm() {
+  closeBatchDelete()
+  isCreateFormVisible.value = !isCreateFormVisible.value
+}
+
 function toggleSelectedTimeline(timelineId: string) {
   selectedTimelineIds.value = selectedTimelineIds.value.includes(timelineId)
     ? selectedTimelineIds.value.filter((selectedId) => selectedId !== timelineId)
@@ -194,6 +199,7 @@ function cancelBulkDelete() {
 }
 
 function showTimelineEditor(timeline: ITimeline) {
+  closeBatchDelete()
   getTimelineEditForm(timeline)
   editingTimelineId.value = timeline.id
 }
@@ -244,7 +250,7 @@ function parseCommaSeparatedText(value: string): string[] {
       <button
         class="primary-button"
         type="button"
-        @click="isCreateFormVisible = !isCreateFormVisible"
+        @click="toggleCreateForm"
       >
         {{ isCreateFormVisible ? '收起创建' : '创建时间线' }}
       </button>

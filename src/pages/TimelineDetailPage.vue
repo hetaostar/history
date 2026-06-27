@@ -185,6 +185,7 @@ function selectEvent(event: IHistoryEvent) {
 }
 
 function editEvent(event: IHistoryEvent) {
+  closeBatchDelete()
   editingEventId.value = event.id
 }
 
@@ -201,6 +202,11 @@ function closeBatchDelete() {
   isBatchDeleteVisible.value = false
   selectedEventIds.value = []
   errorMessage.value = ''
+}
+
+function toggleCreateForm() {
+  closeBatchDelete()
+  isCreateFormVisible.value = !isCreateFormVisible.value
 }
 
 function toggleSelectedEvent(eventId: string) {
@@ -359,7 +365,7 @@ function isKnownPersonId(personId: string): boolean {
       <button
         class="primary-button"
         type="button"
-        @click="isCreateFormVisible = !isCreateFormVisible"
+        @click="toggleCreateForm"
       >
         {{ isCreateFormVisible ? '收起添加' : '添加历史事件' }}
       </button>

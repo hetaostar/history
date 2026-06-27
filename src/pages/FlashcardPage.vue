@@ -167,6 +167,7 @@ function openCard(card: IStudyCard) {
 }
 
 function toggleStudyMode() {
+  closeBatchDelete()
   isStudyModeEnabled.value = !isStudyModeEnabled.value
   selectedCardId.value = ''
   studyingCardId.value = ''
@@ -181,6 +182,7 @@ function closeCardStudy() {
 }
 
 function showCardEditor(card: IStudyCard) {
+  closeBatchDelete()
   cardEditForms[card.id] = createCardEditForm(card)
   editingCardId.value = card.id
 }
@@ -203,6 +205,16 @@ function closeBatchDelete() {
   isBatchDeleteVisible.value = false
   selectedCardIds.value = []
   errorMessage.value = ''
+}
+
+function toggleCreateForm() {
+  closeBatchDelete()
+  isCreateFormVisible.value = !isCreateFormVisible.value
+}
+
+function toggleDrawForm() {
+  closeBatchDelete()
+  isDrawFormVisible.value = !isDrawFormVisible.value
 }
 
 function toggleSelectedCard(cardId: string) {
@@ -509,7 +521,7 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
       <button
         class="primary-button"
         type="button"
-        @click="isCreateFormVisible = !isCreateFormVisible"
+        @click="toggleCreateForm"
       >
         {{ isCreateFormVisible ? '收起新建' : '新建卡片' }}
       </button>
@@ -517,7 +529,7 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
         class="primary-button secondary-button"
         data-test="toggle-draw-form"
         type="button"
-        @click="isDrawFormVisible = !isDrawFormVisible"
+        @click="toggleDrawForm"
       >
         {{ isDrawFormVisible ? '收起抽卡' : '抽卡' }}
       </button>
@@ -605,185 +617,203 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
       </section>
     </div>
 
-    <form
+    <div
       v-if="isDrawFormVisible"
-      class="panel draw-form"
-      data-test="draw-form"
-      @submit.prevent="drawCards"
+      class="card-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="随机抽卡"
+      @click.self="isDrawFormVisible = false"
     >
-      <h2>随机抽卡</h2>
-      <p class="helper-text">
-        从全部 {{ cards.length }} 张卡片中随机抽取指定数量。
-      </p>
-
-      <label>
-        抽取数量
-        <input
-          v-model.number="drawCount"
-          type="number"
-          min="1"
-          :max="Math.max(cards.length, 1)"
-          placeholder="例如：5"
-        />
-      </label>
-
-      <div class="range-field">
-        <span>抽卡范围</span>
+      <section class="card-modal-content">
         <button
-          class="select-trigger"
-          data-test="draw-range-toggle"
+          class="close-button"
           type="button"
-          @click="isDrawRangeOpen = !isDrawRangeOpen"
+          @click="isDrawFormVisible = false"
         >
-          <span>{{ getDrawRangeLabel(drawRange) }}</span>
-          <span aria-hidden="true">⌄</span>
+          关闭
         </button>
-        <div v-if="isDrawRangeOpen" class="select-options">
-          <button
-            type="button"
-            data-test="draw-range-all"
-            @click="selectDrawRange('all')"
-          >
-            全部
-          </button>
-          <button
-            type="button"
-            data-test="draw-range-remembered"
-            @click="selectDrawRange('remembered')"
-          >
-            已背过
-          </button>
-          <button
-            type="button"
-            data-test="draw-range-forgotten"
-            @click="selectDrawRange('forgotten')"
-          >
-            未背过
-          </button>
-          <button
-            type="button"
-            data-test="draw-range-custom"
-            @click="selectDrawRange('custom')"
-          >
-            自定义
-          </button>
-        </div>
-      </div>
 
-      <div v-if="drawRange === 'custom'" class="custom-range-panel">
-        <div class="range-field">
-          <span>自定义方向</span>
-          <button
-            class="select-trigger"
-            data-test="custom-direction-toggle"
-            type="button"
-            @click="isCustomDirectionOpen = !isCustomDirectionOpen"
-          >
-            <span>{{ getCustomDirectionLabel(customRangeDirection) }}</span>
-            <span aria-hidden="true">⌄</span>
-          </button>
-          <div v-if="isCustomDirectionOpen" class="select-options">
+        <form
+          class="panel draw-form"
+          data-test="draw-form"
+          @submit.prevent="drawCards"
+        >
+          <h2>随机抽卡</h2>
+          <p class="helper-text">
+            从全部 {{ cards.length }} 张卡片中随机抽取指定数量。
+          </p>
+
+          <label>
+            抽取数量
+            <input
+              v-model.number="drawCount"
+              type="number"
+              min="1"
+              :max="Math.max(cards.length, 1)"
+              placeholder="例如：5"
+            />
+          </label>
+
+          <div class="range-field">
+            <span>抽卡范围</span>
             <button
+              class="select-trigger"
+              data-test="draw-range-toggle"
               type="button"
-              data-test="custom-direction-person"
-              @click="selectCustomDirection('person')"
+              @click="isDrawRangeOpen = !isDrawRangeOpen"
             >
-              关联人物
+              <span>{{ getDrawRangeLabel(drawRange) }}</span>
+              <span aria-hidden="true">⌄</span>
             </button>
+            <div v-if="isDrawRangeOpen" class="select-options">
+              <button
+                type="button"
+                data-test="draw-range-all"
+                @click="selectDrawRange('all')"
+              >
+                全部
+              </button>
+              <button
+                type="button"
+                data-test="draw-range-remembered"
+                @click="selectDrawRange('remembered')"
+              >
+                已背过
+              </button>
+              <button
+                type="button"
+                data-test="draw-range-forgotten"
+                @click="selectDrawRange('forgotten')"
+              >
+                未背过
+              </button>
+              <button
+                type="button"
+                data-test="draw-range-custom"
+                @click="selectDrawRange('custom')"
+              >
+                自定义
+              </button>
+            </div>
+          </div>
+
+          <div v-if="drawRange === 'custom'" class="custom-range-panel">
+            <div class="range-field">
+              <span>自定义方向</span>
+              <button
+                class="select-trigger"
+                data-test="custom-direction-toggle"
+                type="button"
+                @click="isCustomDirectionOpen = !isCustomDirectionOpen"
+              >
+                <span>{{ getCustomDirectionLabel(customRangeDirection) }}</span>
+                <span aria-hidden="true">⌄</span>
+              </button>
+              <div v-if="isCustomDirectionOpen" class="select-options">
+                <button
+                  type="button"
+                  data-test="custom-direction-person"
+                  @click="selectCustomDirection('person')"
+                >
+                  关联人物
+                </button>
+                <button
+                  type="button"
+                  data-test="custom-direction-event"
+                  @click="selectCustomDirection('event')"
+                >
+                  关联事件
+                </button>
+                <button
+                  type="button"
+                  data-test="custom-direction-keyword"
+                  @click="selectCustomDirection('keyword')"
+                >
+                  关键词
+                </button>
+              </div>
+            </div>
+
+            <label>
+              筛选内容
+              <input
+                v-model="customRangeInput"
+                data-test="custom-range-input"
+                type="text"
+                placeholder="输入关联 ID 或关键词"
+              />
+            </label>
+
             <button
+              class="secondary-action"
+              data-test="confirm-custom-range"
               type="button"
-              data-test="custom-direction-event"
-              @click="selectCustomDirection('event')"
+              @click="confirmCustomRange"
             >
-              关联事件
-            </button>
-            <button
-              type="button"
-              data-test="custom-direction-keyword"
-              @click="selectCustomDirection('keyword')"
-            >
-              关键词
+              确认自定义范围
             </button>
           </div>
-        </div>
 
-        <label>
-          筛选内容
-          <input
-            v-model="customRangeInput"
-            data-test="custom-range-input"
-            type="text"
-            placeholder="输入关联 ID 或关键词"
-          />
-        </label>
+          <p v-if="pageError" class="error-message">{{ pageError }}</p>
+          <button data-test="draw-cards-submit" type="submit">开始抽卡</button>
+        </form>
 
-        <button
-          class="secondary-action"
-          data-test="confirm-custom-range"
-          type="button"
-          @click="confirmCustomRange"
+        <section
+          v-if="drawnCards.length"
+          class="panel card-list draw-result-list"
+          data-test="drawn-card-list"
         >
-          确认自定义范围
-        </button>
-      </div>
+          <h2>抽卡结果</h2>
+          <p class="helper-text">
+            本次抽到 {{ drawnCards.length }} 张卡片，点击会{{
+              isStudyModeEnabled ? '直接开始背诵' : '查看详情'
+            }}。
+          </p>
 
-      <p v-if="pageError" class="error-message">{{ pageError }}</p>
-      <button data-test="draw-cards-submit" type="submit">开始抽卡</button>
-    </form>
-
-    <section
-      v-if="drawnCards.length"
-      class="panel card-list"
-      data-test="drawn-card-list"
-    >
-      <h2>抽卡结果</h2>
-      <p class="helper-text">
-        本次抽到 {{ drawnCards.length }} 张卡片，点击会{{
-          isStudyModeEnabled ? '直接开始背诵' : '查看详情'
-        }}。
-      </p>
-
-      <article
-        v-for="card in drawnCards"
-        :key="card.id"
-        class="card-preview-button"
-        role="button"
-        tabindex="0"
-        @click="openCard(card)"
-        @keydown.enter.prevent="openCard(card)"
-        @keydown.space.prevent="openCard(card)"
-      >
-        <input
-          v-if="isBatchDeleteVisible"
-          v-model="selectedCardIds"
-          class="select-card-checkbox"
-          type="checkbox"
-          :value="card.id"
-          aria-label="选择卡片"
-          @click.stop
-          @keydown.stop
-        />
-        <button
-          class="edit-card-button"
-          type="button"
-          aria-label="编辑卡片"
-          @click.stop="showCardEditor(card)"
-        >
-          ✎
-        </button>
-        <EntityCard
-          :title="card.front"
-          :subtitle="card.keywords.join('，') || '未设置关键词'"
-          :summary="isStudyModeEnabled ? '点击开始背诵' : '点击查看详情'"
-        />
-        <span
-          class="study-status"
-          :class="`study-status--${cardStudyResults[card.id] ?? 'forgotten'}`"
-        >
-          {{ getStudyStatusLabel(cardStudyResults[card.id]) }}
-        </span>
-      </article>
-    </section>
+          <article
+            v-for="card in drawnCards"
+            :key="card.id"
+            class="card-preview-button"
+            role="button"
+            tabindex="0"
+            @click="openCard(card)"
+            @keydown.enter.prevent="openCard(card)"
+            @keydown.space.prevent="openCard(card)"
+          >
+            <input
+              v-if="isBatchDeleteVisible"
+              v-model="selectedCardIds"
+              class="select-card-checkbox"
+              type="checkbox"
+              :value="card.id"
+              aria-label="选择卡片"
+              @click.stop
+              @keydown.stop
+            />
+            <button
+              class="edit-card-button"
+              type="button"
+              aria-label="编辑卡片"
+              @click.stop="showCardEditor(card)"
+            >
+              ✎
+            </button>
+            <EntityCard
+              :title="card.front"
+              :subtitle="card.keywords.join('，') || '未设置关键词'"
+              :summary="isStudyModeEnabled ? '点击开始背诵' : '点击查看详情'"
+            />
+            <span
+              class="study-status"
+              :class="`study-status--${cardStudyResults[card.id] ?? 'forgotten'}`"
+            >
+              {{ getStudyStatusLabel(cardStudyResults[card.id]) }}
+            </span>
+          </article>
+        </section>
+      </section>
+    </div>
 
     <section class="panel card-list">
       <div class="section-heading">
@@ -1223,6 +1253,10 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
 
 .card-list {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.draw-result-list {
+  margin-top: 16px;
 }
 
 .card-list h2,

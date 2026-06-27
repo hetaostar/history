@@ -159,6 +159,11 @@ function closeBatchDelete() {
   errorMessage.value = ''
 }
 
+function toggleCreateForm() {
+  closeBatchDelete()
+  isCreateFormVisible.value = !isCreateFormVisible.value
+}
+
 function toggleSelectedPerson(personId: string) {
   selectedPersonIds.value = selectedPersonIds.value.includes(personId)
     ? selectedPersonIds.value.filter((selectedId) => selectedId !== personId)
@@ -245,6 +250,7 @@ function cancelBulkDelete() {
 }
 
 function showPersonEditor(person: IPerson) {
+  closeBatchDelete()
   getPersonEditForm(person)
   editingPersonId.value = person.id
 }
@@ -254,6 +260,7 @@ function closePersonEditor() {
 }
 
 function toggleStudyMode() {
+  closeBatchDelete()
   isStudyModeEnabled.value = !isStudyModeEnabled.value
   studyingPersonId.value = ''
 }
@@ -315,7 +322,7 @@ function parseCommaSeparatedText(value: string): string[] {
       <button
         class="primary-button"
         type="button"
-        @click="isCreateFormVisible = !isCreateFormVisible"
+        @click="toggleCreateForm"
       >
         {{ isCreateFormVisible ? '收起新建' : '新建人物' }}
       </button>
