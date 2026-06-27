@@ -3,6 +3,24 @@ import { describe, expect, it } from 'vitest'
 import StudyRevealCard from './StudyRevealCard.vue'
 
 describe('StudyRevealCard', () => {
+  it('places the supplied hint beside the face label', () => {
+    const wrapper = mount(StudyRevealCard, {
+      props: {
+        prompt: '前221年',
+        answer: '前221年',
+        hint: '秦统一六国',
+      },
+    })
+
+    const header = wrapper.get('.flip-face-front .face-heading')
+
+    expect(header.get('.face-label').text()).toBe('正面')
+    expect(header.get('.face-hint').text()).toBe('秦统一六国')
+    expect(wrapper.get('.flip-face-front > .flip-hint').text()).toBe(
+      '点击卡片查看反面',
+    )
+  })
+
   it('hides answer before reveal and emits result after reveal', async () => {
     const wrapper = mount(StudyRevealCard, {
       props: {

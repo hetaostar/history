@@ -113,6 +113,22 @@ describe('historyStore', () => {
     expect(result.cards).toHaveLength(1)
   })
 
+  it('creates cards with a memorization hint', () => {
+    const store = useHistoryStore()
+
+    const card = store.createCard({
+      front: '商鞅变法的主要内容是什么？',
+      back: '废井田、重农抑商、奖励军功。',
+      hint: '秦国变法',
+      keywords: ['商鞅'],
+      personIds: [],
+      eventIds: [],
+    })
+
+    expect(card.hint).toBe('秦国变法')
+    expect(store.cards[0].hint).toBe('秦国变法')
+  })
+
   it('updates a timeline name', () => {
     const store = useHistoryStore()
     const timeline = store.createTimeline({

@@ -31,12 +31,14 @@ defineProps<{
   font-family: var(--font-display);
   font-size: 22px;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .entity-card p:last-child {
   margin: 10px 0 0;
   color: var(--muted-ink);
   line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 .subtitle {

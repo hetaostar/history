@@ -41,6 +41,7 @@ export interface IStudyCard {
   id: string
   front: string
   back: string
+  hint: string
   keywords: string[]
   personIds: string[]
   eventIds: string[]

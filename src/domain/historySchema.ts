@@ -1,4 +1,5 @@
 import type { IHistoryData } from './historyTypes'
+import type { IStudyCard } from './historyTypes'
 
 const REQUIRED_COLLECTIONS: Array<keyof IHistoryData> = [
   'timelines',
@@ -49,7 +50,7 @@ export function parseHistoryData(value: unknown): IHistoryData {
     timelines,
     events,
     people,
-    cards,
+    cards: cards.map(normalizeStudyCard),
     studyRecords,
   } as IHistoryData
 }
@@ -109,12 +110,22 @@ function isStudyCard(value: unknown): boolean {
     isString(value.id) &&
     isString(value.front) &&
     isString(value.back) &&
+    (!('hint' in value) || isString(value.hint)) &&
     isStringArray(value.keywords) &&
     isStringArray(value.personIds) &&
     isStringArray(value.eventIds) &&
     isString(value.createdAt) &&
     isString(value.updatedAt)
   )
+}
+
+function normalizeStudyCard(value: unknown): IStudyCard {
+  const card = value as Omit<IStudyCard, 'hint'> & { hint?: string }
+
+  return {
+    ...card,
+    hint: card.hint ?? '',
+  }
 }
 
 function isStudyRecord(value: unknown): boolean {

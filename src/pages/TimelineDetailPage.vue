@@ -1,18 +1,27 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import ConfirmActionModal from '@/components/ConfirmActionModal.vue'
 import StudyRevealCard from '@/components/StudyRevealCard.vue'
 import TimelineSnake from '@/components/TimelineSnake.vue'
 import type { IHistoryEvent, StudyResult } from '@/domain/historyTypes'
 import { useHistoryStore } from '@/stores/historyStore'
+
+const BULK_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
 
 const route = useRoute()
 const store = useHistoryStore()
 const timelineId = computed(() => String(route.params.timelineId ?? ''))
 const selectedEventId = ref('')
 const editingEventId = ref('')
+const studyingEventId = ref('')
+const isCreateFormVisible = ref(false)
 const isStudyVisible = ref(false)
+const isStudyModeEnabled = ref(false)
+const isBatchDeleteVisible = ref(false)
+const isBulkDeleteConfirmVisible = ref(false)
 const errorMessage = ref('')
+const selectedEventIds = ref<string[]>([])
 const eventEditForms = reactive<Record<string, IEventForm>>({})
 
 interface IEventForm {
@@ -36,6 +45,7 @@ const form = reactive({
   personIds: [] as string[],
   personIdsText: '',
 })
+let pendingBulkDeleteAction: (() => void) | null = null
 
 const timeline = computed(() =>
   store.timelines.find((item) => item.id === timelineId.value),
@@ -52,6 +62,10 @@ const editingEvent = computed(() => {
   return events.value.find((event) => event.id === editingEventId.value) ?? null
 })
 
+const studyingEvent = computed(() => {
+  return events.value.find((event) => event.id === studyingEventId.value) ?? null
+})
+
 const eventStudyResults = computed(() => {
   const results: Record<string, StudyResult> = {}
 
@@ -65,19 +79,19 @@ const eventStudyResults = computed(() => {
 })
 
 const selectedStudyPrompt = computed(() => {
-  if (!selectedEvent.value) {
+  if (!studyingEvent.value) {
     return ''
   }
 
-  return `${selectedEvent.value.timeLabel}：${selectedEvent.value.hint}`
+  return studyingEvent.value.timeLabel
 })
 
 const selectedStudyAnswer = computed(() => {
-  if (!selectedEvent.value) {
+  if (!studyingEvent.value) {
     return ''
   }
 
-  return `${selectedEvent.value.title}\n\n${selectedEvent.value.detail}`
+  return `${studyingEvent.value.title}\n\n${studyingEvent.value.detail}`
 })
 
 function createEvent() {
@@ -100,6 +114,7 @@ function createEvent() {
 
   selectedEventId.value = event.id
   resetForm()
+  isCreateFormVisible.value = false
   errorMessage.value = ''
 }
 
@@ -151,17 +166,124 @@ function deleteEvent(event: IHistoryEvent) {
   delete eventEditForms[event.id]
   selectedEventId.value = ''
   editingEventId.value = ''
+  studyingEventId.value = ''
+  selectedEventIds.value = selectedEventIds.value.filter((eventId) => eventId !== event.id)
   isStudyVisible.value = false
   errorMessage.value = ''
 }
 
 function selectEvent(event: IHistoryEvent) {
+  if (isStudyModeEnabled.value) {
+    studyingEventId.value = event.id
+    selectedEventId.value = ''
+    isStudyVisible.value = true
+    return
+  }
+
   selectedEventId.value = event.id
   isStudyVisible.value = false
 }
 
 function editEvent(event: IHistoryEvent) {
   editingEventId.value = event.id
+}
+
+function showBatchDelete() {
+  isBatchDeleteVisible.value = true
+  selectedEventIds.value = []
+  selectedEventId.value = ''
+  editingEventId.value = ''
+  closeStudy()
+  errorMessage.value = ''
+}
+
+function closeBatchDelete() {
+  isBatchDeleteVisible.value = false
+  selectedEventIds.value = []
+  errorMessage.value = ''
+}
+
+function toggleSelectedEvent(eventId: string) {
+  selectedEventIds.value = selectedEventIds.value.includes(eventId)
+    ? selectedEventIds.value.filter((selectedId) => selectedId !== eventId)
+    : [...selectedEventIds.value, eventId]
+}
+
+function deleteSelectedEvents() {
+  if (selectedEventIds.value.length === 0) {
+    errorMessage.value = '请先选择要删除的事件。'
+    return
+  }
+
+  const selectedIdSet = new Set(selectedEventIds.value)
+  const shouldCloseStudy = selectedIdSet.has(studyingEventId.value)
+
+  requestBulkDeleteConfirmation(() => {
+    selectedIdSet.forEach((eventId) => {
+      store.deleteEvent(eventId)
+      delete eventEditForms[eventId]
+    })
+    selectedEventIds.value = []
+    isBatchDeleteVisible.value = false
+    selectedEventId.value = selectedIdSet.has(selectedEventId.value) ? '' : selectedEventId.value
+    editingEventId.value = selectedIdSet.has(editingEventId.value) ? '' : editingEventId.value
+    studyingEventId.value = selectedIdSet.has(studyingEventId.value) ? '' : studyingEventId.value
+    isStudyVisible.value = shouldCloseStudy ? false : isStudyVisible.value
+    errorMessage.value = ''
+  })
+}
+
+function deleteEventsByStudyResult(result: StudyResult) {
+  const eventsToDelete = events.value.filter((event) => {
+    const latestResult = eventStudyResults.value[event.id]
+
+    return result === 'remembered'
+      ? latestResult === 'remembered'
+      : latestResult !== 'remembered'
+  })
+
+  if (eventsToDelete.length === 0) {
+    errorMessage.value =
+      result === 'remembered' ? '没有已背过的事件。' : '没有未背过的事件。'
+    return
+  }
+
+  const deletedIdSet = new Set(eventsToDelete.map((event) => event.id))
+  const shouldCloseStudy = deletedIdSet.has(studyingEventId.value)
+
+  requestBulkDeleteConfirmation(() => {
+    deletedIdSet.forEach((eventId) => {
+      store.deleteEvent(eventId)
+      delete eventEditForms[eventId]
+    })
+    selectedEventIds.value = selectedEventIds.value.filter(
+      (eventId) => !deletedIdSet.has(eventId),
+    )
+    isBatchDeleteVisible.value = false
+    selectedEventId.value = deletedIdSet.has(selectedEventId.value) ? '' : selectedEventId.value
+    editingEventId.value = deletedIdSet.has(editingEventId.value) ? '' : editingEventId.value
+    studyingEventId.value = deletedIdSet.has(studyingEventId.value) ? '' : studyingEventId.value
+    isStudyVisible.value = shouldCloseStudy ? false : isStudyVisible.value
+    errorMessage.value = ''
+  })
+}
+
+function requestBulkDeleteConfirmation(action: () => void) {
+  pendingBulkDeleteAction = action
+  isBulkDeleteConfirmVisible.value = true
+}
+
+function confirmBulkDelete() {
+  const action = pendingBulkDeleteAction
+
+  pendingBulkDeleteAction = null
+  isBulkDeleteConfirmVisible.value = false
+  action?.()
+}
+
+function cancelBulkDelete() {
+  pendingBulkDeleteAction = null
+  isBulkDeleteConfirmVisible.value = false
 }
 
 function closeEventDetail() {
@@ -173,17 +295,25 @@ function closeEventEditor() {
   editingEventId.value = ''
 }
 
-function startStudy() {
-  isStudyVisible.value = true
+function closeStudy() {
+  studyingEventId.value = ''
+  isStudyVisible.value = false
+}
+
+function toggleStudyMode() {
+  isStudyModeEnabled.value = !isStudyModeEnabled.value
+  selectedEventId.value = ''
+  closeBatchDelete()
+  closeStudy()
 }
 
 function recordStudy(result: StudyResult) {
-  if (!selectedEvent.value) {
+  if (!studyingEvent.value) {
     return
   }
 
-  store.recordStudy('event', selectedEvent.value.id, result)
-  closeEventDetail()
+  store.recordStudy('event', studyingEvent.value.id, result)
+  closeStudy()
 }
 
 function resetForm() {
@@ -226,85 +356,164 @@ function isKnownPersonId(personId: string): boolean {
           {{ tag }}
         </span>
       </div>
+      <button
+        class="primary-button"
+        type="button"
+        @click="isCreateFormVisible = !isCreateFormVisible"
+      >
+        {{ isCreateFormVisible ? '收起添加' : '添加历史事件' }}
+      </button>
     </header>
 
-    <form class="panel event-form" @submit.prevent="createEvent">
-      <h2>添加历史事件</h2>
+    <div
+      v-if="isCreateFormVisible"
+      class="event-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="添加历史事件"
+      @click.self="isCreateFormVisible = false"
+    >
+      <section class="event-modal-content">
+        <button
+          class="close-button"
+          type="button"
+          @click="isCreateFormVisible = false"
+        >
+          关闭
+        </button>
 
-      <div class="form-grid">
-        <label>
-          时间
-          <input v-model="form.timeLabel" type="text" placeholder="例如：1840年" />
-        </label>
-      </div>
+        <form class="panel event-form" @submit.prevent="createEvent">
+          <h2>添加历史事件</h2>
 
-      <label>
-        标题
-        <input v-model="form.title" type="text" placeholder="例如：鸦片战争" />
-      </label>
+          <div class="form-grid">
+            <label>
+              时间
+              <input v-model="form.timeLabel" type="text" placeholder="例如：1840年" />
+            </label>
+          </div>
 
-      <label>
-        提示
-        <input v-model="form.hint" type="text" placeholder="用于背诵时提示自己" />
-      </label>
+          <label>
+            标题
+            <input v-model="form.title" type="text" placeholder="例如：鸦片战争" />
+          </label>
 
-      <label>
-        摘要
-        <textarea
-          v-model="form.summary"
-          rows="2"
-          placeholder="事件的一句话概括"
-        />
-      </label>
+          <label>
+            提示
+            <input v-model="form.hint" type="text" placeholder="用于背诵时提示自己" />
+          </label>
 
-      <label>
-        详情
-        <textarea
-          v-model="form.detail"
-          rows="5"
-          placeholder="需要记忆的完整内容"
-        />
-      </label>
+          <label>
+            摘要
+            <textarea
+              v-model="form.summary"
+              rows="2"
+              placeholder="事件的一句话概括"
+            />
+          </label>
 
-      <div class="form-grid">
-        <label>
-          关键词
-          <input
-            v-model="form.keywordsText"
-            type="text"
-            placeholder="用英文逗号分隔"
-          />
-        </label>
+          <label>
+            详情
+            <textarea
+              v-model="form.detail"
+              rows="5"
+              placeholder="需要记忆的完整内容"
+            />
+          </label>
 
-        <label>
-          选择关联人物（可选）
-          <select v-model="form.personIds" multiple>
-            <option
-              v-for="person in store.people"
-              :key="person.id"
-              :value="person.id"
-            >
-              {{ person.name }}
-            </option>
-          </select>
-        </label>
+          <div class="form-grid">
+            <label>
+              关键词
+              <input
+                v-model="form.keywordsText"
+                type="text"
+                placeholder="用英文逗号分隔"
+              />
+            </label>
 
-        <label>
-          其他人物 ID（可选）
-          <input
-            v-model="form.personIdsText"
-            type="text"
-            placeholder="用英文逗号分隔"
-          />
-        </label>
-      </div>
+            <label>
+              选择关联人物（可选）
+              <select v-model="form.personIds" multiple>
+                <option
+                  v-for="person in store.people"
+                  :key="person.id"
+                  :value="person.id"
+                >
+                  {{ person.name }}
+                </option>
+              </select>
+            </label>
 
-      <p v-if="pageError" class="error-message">{{ pageError }}</p>
-      <button type="submit">保存事件</button>
-    </form>
+            <label>
+              其他人物 ID（可选）
+              <input
+                v-model="form.personIdsText"
+                type="text"
+                placeholder="用英文逗号分隔"
+              />
+            </label>
+          </div>
+
+          <p v-if="pageError" class="error-message">{{ pageError }}</p>
+          <button type="submit">保存事件</button>
+        </form>
+      </section>
+    </div>
 
     <section class="panel">
-      <h2>事件时间线</h2>
+      <div class="section-heading">
+        <h2>事件时间线</h2>
+        <button
+          class="primary-button study-mode-button"
+          :class="{ 'study-mode-button--active': isStudyModeEnabled }"
+          data-test="toggle-event-study-mode"
+          type="button"
+          @click="toggleStudyMode"
+        >
+          {{ isStudyModeEnabled ? '退出背诵模式' : '进入背诵模式' }}
+        </button>
+      </div>
+      <div v-if="events.length" class="batch-actions">
+        <span v-if="isBatchDeleteVisible">
+          已选择 {{ selectedEventIds.length }} 个事件
+        </span>
+        <button
+          v-if="!isBatchDeleteVisible"
+          type="button"
+          @click="showBatchDelete"
+        >
+          批量删除
+        </button>
+        <button
+          v-else
+          type="button"
+          :disabled="selectedEventIds.length === 0"
+          @click="deleteSelectedEvents"
+        >
+          删除选中
+        </button>
+        <button
+          v-if="isBatchDeleteVisible"
+          type="button"
+          @click="deleteEventsByStudyResult('remembered')"
+        >
+          删除已背过
+        </button>
+        <button
+          v-if="isBatchDeleteVisible"
+          type="button"
+          @click="deleteEventsByStudyResult('forgotten')"
+        >
+          删除未背过
+        </button>
+        <button
+          v-if="isBatchDeleteVisible"
+          class="secondary-action"
+          type="button"
+          @click="closeBatchDelete"
+        >
+          取消
+        </button>
+      </div>
       <p v-if="events.length === 0" class="empty-message">
         还没有事件，先添加一个历史事件吧。
       </p>
@@ -312,8 +521,11 @@ function isKnownPersonId(personId: string): boolean {
         v-else
         :events="events"
         :study-results="eventStudyResults"
+        :is-batch-delete-visible="isBatchDeleteVisible"
+        :selected-event-ids="selectedEventIds"
         @select="selectEvent"
         @edit="editEvent"
+        @toggle-select="toggleSelectedEvent"
       />
     </section>
 
@@ -354,20 +566,36 @@ function isKnownPersonId(personId: string): boolean {
             </p>
 
             <div class="action-row">
-              <button type="button" @click="startStudy">开始背诵练习</button>
               <button type="button" @click="closeEventDetail">返回时间线</button>
             </div>
           </article>
 
-          <section v-if="isStudyVisible" class="study-section">
-            <h2>背诵练习</h2>
-            <StudyRevealCard
-              :key="selectedEvent.id"
-              :prompt="selectedStudyPrompt"
-              :answer="selectedStudyAnswer"
-              @mark="recordStudy"
-            />
-          </section>
+      </section>
+    </div>
+
+    <div
+      v-if="isStudyVisible && studyingEvent"
+      class="event-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="背诵练习"
+      @click.self="closeStudy"
+    >
+      <section class="event-modal-content study-modal-content">
+        <button class="close-button" type="button" @click="closeStudy">
+          关闭
+        </button>
+
+        <section class="panel study-section">
+          <h2>背诵练习</h2>
+          <StudyRevealCard
+            :key="studyingEvent.id"
+            :prompt="selectedStudyPrompt"
+            :answer="selectedStudyAnswer"
+            :hint="studyingEvent.hint"
+            @mark="recordStudy"
+          />
+        </section>
       </section>
     </div>
 
@@ -456,6 +684,13 @@ function isKnownPersonId(personId: string): boolean {
         </form>
       </section>
     </div>
+
+    <ConfirmActionModal
+      v-if="isBulkDeleteConfirmVisible"
+      :message="BULK_DELETE_CONFIRM_MESSAGE"
+      @confirm="confirmBulkDelete"
+      @cancel="cancelBulkDelete"
+    />
   </section>
 
   <section v-else class="page not-found">
@@ -491,6 +726,62 @@ function isKnownPersonId(personId: string): boolean {
   color: #445ce3;
   font-weight: 700;
   text-decoration: none;
+}
+
+.primary-button {
+  width: fit-content;
+  padding: 10px 16px;
+  color: #fff;
+  cursor: pointer;
+  background: #445ce3;
+  border: 0;
+  border-radius: 999px;
+}
+
+.study-mode-button {
+  background: #9a4b2d;
+}
+
+.study-mode-button--active {
+  background: #c03535;
+}
+
+.section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-heading h2 {
+  margin: 0;
+}
+
+.batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  color: #64708a;
+}
+
+.batch-actions button {
+  width: fit-content;
+  padding: 10px 16px;
+  color: #fff;
+  cursor: pointer;
+  background: #c03535;
+  border: 0;
+  border-radius: 999px;
+}
+
+.batch-actions .secondary-action {
+  background: #445ce3;
+}
+
+.batch-actions button:disabled {
+  cursor: not-allowed;
+  background: #aeb6c8;
 }
 
 .panel {
@@ -564,6 +855,10 @@ function isKnownPersonId(personId: string): boolean {
   margin: 0 auto;
   background: #f6f7fb;
   border-radius: 24px;
+}
+
+.study-modal-content {
+  width: min(820px, 100%);
 }
 
 .close-button {

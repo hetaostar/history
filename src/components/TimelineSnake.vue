@@ -6,14 +6,26 @@ import type { IHistoryEvent, StudyResult } from '@/domain/historyTypes'
 const props = defineProps<{
   events: IHistoryEvent[]
   studyResults?: Record<string, StudyResult | undefined>
+  isBatchDeleteVisible?: boolean
+  selectedEventIds?: string[]
 }>()
 
 const emit = defineEmits<{
   select: [event: IHistoryEvent]
   edit: [event: IHistoryEvent]
+  toggleSelect: [eventId: string]
 }>()
 
 const rows = computed(() => createSnakeRows(props.events, 3))
+
+function selectEvent(event: IHistoryEvent) {
+  if (props.isBatchDeleteVisible) {
+    emit('toggleSelect', event.id)
+    return
+  }
+
+  emit('select', event)
+}
 </script>
 
 <template>
@@ -24,13 +36,25 @@ const rows = computed(() => createSnakeRows(props.events, 3))
       class="snake-row"
       :class="`snake-row--${row.direction}`"
     >
-      <button
+      <article
         v-for="event in row.items"
         :key="event.id"
         class="event-node"
-        type="button"
-        @click="emit('select', event)"
+        role="button"
+        tabindex="0"
+        @click="selectEvent(event)"
+        @keydown.enter.prevent="selectEvent(event)"
+        @keydown.space.prevent="selectEvent(event)"
       >
+        <input
+          v-if="props.isBatchDeleteVisible"
+          class="select-event-checkbox"
+          type="checkbox"
+          :checked="props.selectedEventIds?.includes(event.id)"
+          aria-label="选择事件"
+          @click.stop="emit('toggleSelect', event.id)"
+          @keydown.stop
+        />
         <span
           class="edit-event-button"
           data-test="edit-event"
@@ -47,13 +71,12 @@ const rows = computed(() => createSnakeRows(props.events, 3))
         <strong>{{ event.title }}</strong>
         <span>{{ event.summary }}</span>
         <span
-          v-if="props.studyResults?.[event.id]"
           class="study-status"
-          :class="`study-status--${props.studyResults[event.id]}`"
+          :class="`study-status--${props.studyResults?.[event.id] ?? 'forgotten'}`"
         >
-          {{ props.studyResults[event.id] === 'remembered' ? '已背过' : '未背过' }}
+          {{ props.studyResults?.[event.id] === 'remembered' ? '已背过' : '未背过' }}
         </span>
-      </button>
+      </article>
     </div>
   </div>
 </template>
@@ -112,13 +135,28 @@ const rows = computed(() => createSnakeRows(props.events, 3))
   width: 30%;
   min-height: 128px;
   gap: 8px;
-  padding: 16px;
+  padding: 18px 52px 18px 18px;
   text-align: left;
   cursor: pointer;
   background: #fff;
   border: 3px solid #5867e8;
   border-radius: 18px;
   box-shadow: 0 12px 30px rgb(45 55 120 / 12%);
+}
+
+.event-node:focus-visible {
+  outline: 3px solid #9aa8ff;
+  outline-offset: 4px;
+}
+
+.select-event-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 
 .edit-event-button {
@@ -138,6 +176,11 @@ const rows = computed(() => createSnakeRows(props.events, 3))
 .event-time {
   color: #5867e8;
   font-weight: 700;
+}
+
+.event-node strong,
+.event-node span {
+  overflow-wrap: anywhere;
 }
 
 .study-status {

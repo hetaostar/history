@@ -76,6 +76,47 @@ describe('historySchema', () => {
     ).toThrow('导入文件格式不正确')
   })
 
+  it('keeps card hints when parsing exported data', () => {
+    const data = {
+      ...createEmptyHistoryData(),
+      cards: [
+        {
+          id: 'card-1',
+          front: '商鞅变法的主要内容是什么？',
+          back: '废井田、重农抑商、奖励军功。',
+          hint: '秦国变法',
+          keywords: ['商鞅'],
+          personIds: [],
+          eventIds: [],
+          createdAt: '2026-06-21T00:00:00.000Z',
+          updatedAt: '2026-06-21T00:00:00.000Z',
+        },
+      ],
+    }
+
+    expect(parseHistoryData(data).cards[0].hint).toBe('秦国变法')
+  })
+
+  it('normalizes legacy cards without hints', () => {
+    const data = {
+      ...createEmptyHistoryData(),
+      cards: [
+        {
+          id: 'card-1',
+          front: '商鞅变法的主要内容是什么？',
+          back: '废井田、重农抑商、奖励军功。',
+          keywords: ['商鞅'],
+          personIds: [],
+          eventIds: [],
+          createdAt: '2026-06-21T00:00:00.000Z',
+          updatedAt: '2026-06-21T00:00:00.000Z',
+        },
+      ],
+    }
+
+    expect(parseHistoryData(data).cards[0].hint).toBe('')
+  })
+
   it('rejects malformed study record elements', () => {
     expect(() =>
       parseHistoryData({

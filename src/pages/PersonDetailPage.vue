@@ -2,8 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import EntityCard from '@/components/EntityCard.vue'
-import StudyRevealCard from '@/components/StudyRevealCard.vue'
-import type { IHistoryEvent, StudyResult } from '@/domain/historyTypes'
+import type { IHistoryEvent } from '@/domain/historyTypes'
 import { useHistoryStore } from '@/stores/historyStore'
 
 const route = useRoute()
@@ -11,7 +10,6 @@ const store = useHistoryStore()
 const personId = computed(() => String(route.params.personId ?? ''))
 const selectedEventId = ref('')
 const errorMessage = ref('')
-const personStudyKey = ref(0)
 
 const eventForm = reactive({
   timelineId: '',
@@ -35,23 +33,6 @@ const selectedEvent = computed(() => {
     relatedEvents.value.find((event) => event.id === selectedEventId.value) ??
     null
   )
-})
-
-const studyAnswer = computed(() => {
-  if (!person.value) {
-    return ''
-  }
-
-  const parts = [
-    person.value.biography && `生平：\n${person.value.biography}`,
-    person.value.achievements && `主要成就：\n${person.value.achievements}`,
-    relatedEvents.value.length > 0 &&
-      `关联事件：\n${relatedEvents.value
-        .map((event) => `- ${event.title}`)
-        .join('\n')}`,
-  ].filter(Boolean)
-
-  return parts.join('\n\n')
 })
 
 function selectEvent(event: IHistoryEvent) {
@@ -86,15 +67,6 @@ function createRelatedEvent() {
   selectedEventId.value = event.id
   resetEventForm()
   errorMessage.value = ''
-}
-
-function recordStudy(result: StudyResult) {
-  if (!person.value) {
-    return
-  }
-
-  store.recordStudy('person', person.value.id, result)
-  personStudyKey.value += 1
 }
 
 function resetEventForm() {
@@ -142,17 +114,9 @@ function parseCommaSeparatedText(value: string): string[] {
           <h3>主要成就</h3>
           <div class="detail-text">{{ person.achievements }}</div>
         </section>
+
       </article>
 
-      <section class="study-section">
-        <h2>人物背诵</h2>
-        <StudyRevealCard
-          :key="`${person.id}-${personStudyKey}`"
-          :prompt="person.name"
-          :answer="studyAnswer"
-          @mark="recordStudy"
-        />
-      </section>
     </section>
 
     <form class="panel event-form" @submit.prevent="createRelatedEvent">
@@ -293,7 +257,6 @@ function parseCommaSeparatedText(value: string): string[] {
 .panel,
 .person-detail,
 .event-form,
-.study-section,
 .related-events,
 .detail-block {
   display: grid;
@@ -334,7 +297,7 @@ function parseCommaSeparatedText(value: string): string[] {
 
 .detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
 
@@ -356,6 +319,22 @@ function parseCommaSeparatedText(value: string): string[] {
 }
 
 .event-form button {
+  width: fit-content;
+  padding: 10px 16px;
+  color: #fff;
+  cursor: pointer;
+  background: #445ce3;
+  border: 0;
+  border-radius: 999px;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.action-row button {
   width: fit-content;
   padding: 10px 16px;
   color: #fff;
