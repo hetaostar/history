@@ -20,7 +20,6 @@ describe('historyStore', () => {
     const event = store.createEvent({
       timelineId: timeline.id,
       timeLabel: '前221年',
-      sortValue: -221,
       title: '秦统一六国',
       hint: '秦、统一、中央集权',
       summary: '秦完成统一，建立中央集权国家。',
@@ -44,7 +43,6 @@ describe('historyStore', () => {
     store.createEvent({
       timelineId: timeline.id,
       timeLabel: '1911年',
-      sortValue: 1,
       title: '辛亥革命',
       hint: '革命',
       summary: '推翻清朝统治。',
@@ -55,7 +53,6 @@ describe('historyStore', () => {
     store.createEvent({
       timelineId: timeline.id,
       timeLabel: '1840年',
-      sortValue: 999,
       title: '鸦片战争',
       hint: '战争',
       summary: '中国近代史开端。',
@@ -66,7 +63,6 @@ describe('historyStore', () => {
     store.createEvent({
       timelineId: timeline.id,
       timeLabel: '前221年',
-      sortValue: 9999,
       title: '秦统一六国',
       hint: '统一',
       summary: '秦完成统一。',
@@ -75,11 +71,9 @@ describe('historyStore', () => {
       personIds: [],
     })
 
-    expect(store.eventsByTimeline(timeline.id).map((event) => event.title)).toEqual([
-      '秦统一六国',
-      '鸦片战争',
-      '辛亥革命',
-    ])
+    expect(
+      store.eventsByTimeline(timeline.id).map((event) => event.title),
+    ).toEqual(['秦统一六国', '鸦片战争', '辛亥革命'])
   })
 
   it('searches people, events, timelines and cards', () => {
@@ -92,7 +86,6 @@ describe('historyStore', () => {
     store.createEvent({
       timelineId: timeline.id,
       timeLabel: '1789年',
-      sortValue: 1789,
       title: '法国大革命',
       hint: '法国',
       summary: '法国大革命爆发。',
@@ -156,7 +149,6 @@ describe('historyStore', () => {
     store.createEvent({
       timelineId: timeline.id,
       timeLabel: '前221年',
-      sortValue: -221,
       title: '秦统一六国',
       hint: '秦',
       summary: '秦完成统一。',
@@ -189,7 +181,6 @@ describe('historyStore', () => {
     store.createEvent({
       timelineId: timeline.id,
       timeLabel: '1804年',
-      sortValue: 1804,
       title: '拿破仑称帝',
       hint: '法国',
       summary: '拿破仑成为皇帝。',
@@ -221,9 +212,11 @@ describe('historyStore', () => {
   })
 
   it('sets lastError without throwing when createTimeline cannot save', () => {
-    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
-      throw new Error('storage full')
-    })
+    const setItemSpy = vi
+      .spyOn(localStorage, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('storage full')
+      })
     const store = useHistoryStore()
 
     expect(() =>
@@ -234,5 +227,184 @@ describe('historyStore', () => {
       }),
     ).not.toThrow()
     expect(store.lastError).toBe('本地保存失败，请重试或先导出当前数据。')
+    setItemSpy.mockRestore()
+  })
+
+  it('exportSnapshot excludes lastError and includes version', () => {
+    const store = useHistoryStore()
+    store.createTimeline({
+      name: '中国古代史',
+      description: '',
+      tags: [],
+    })
+    store.lastError = 'something wrong'
+
+    const snapshot = store.exportSnapshot()
+
+    expect(snapshot.version).toBe(1)
+    expect(snapshot.timelines).toHaveLength(1)
+    expect(snapshot).not.toHaveProperty('lastError')
+    expect(JSON.stringify(snapshot)).not.toContain('lastError')
+    expect(JSON.stringify(snapshot)).not.toContain('something wrong')
+  })
+
+  it('persists data with version field', () => {
+    const store = useHistoryStore()
+    store.createTimeline({
+      name: '中国古代史',
+      description: '',
+      tags: [],
+    })
+
+    const raw = localStorage.getItem('history-memorization:data')
+    const parsed = JSON.parse(raw ?? '{}')
+
+    expect(parsed.version).toBe(1)
+    expect(parsed.timelines).toHaveLength(1)
+  })
+
+  it('loads legacy data without version field and migrates to v1', () => {
+    const legacyData = {
+      timelines: [],
+      events: [],
+      people: [],
+      cards: [],
+      studyRecords: [],
+    }
+    localStorage.setItem(
+      'history-memorization:data',
+      JSON.stringify(legacyData),
+    )
+
+    const store = useHistoryStore()
+
+    expect(store.version).toBe(1)
+    expect(store.lastError).toBe('')
+  })
+
+  it('sets lastError when local data is corrupted', () => {
+    localStorage.setItem('history-memorization:data', '{not valid json')
+
+    const store = useHistoryStore()
+
+    expect(store.version).toBe(1)
+    expect(store.timelines).toEqual([])
+    expect(store.lastError).toBe('本地数据损坏，已重置为空数据。')
+  })
+
+  it('creates events without sortValue input and sorts by time label', () => {
+    const store = useHistoryStore()
+    const timeline = store.createTimeline({
+      name: '排序测试',
+      description: '',
+      tags: [],
+    })
+
+    store.createEvent({
+      timelineId: timeline.id,
+      timeLabel: '1911年',
+      title: '辛亥革命',
+      hint: '',
+      summary: '',
+      detail: '',
+      keywords: [],
+      personIds: [],
+    })
+    store.createEvent({
+      timelineId: timeline.id,
+      timeLabel: '前221年',
+      title: '秦统一六国',
+      hint: '',
+      summary: '',
+      detail: '',
+      keywords: [],
+      personIds: [],
+    })
+
+    expect(
+      store.eventsByTimeline(timeline.id).map((event) => event.title),
+    ).toEqual(['秦统一六国', '辛亥革命'])
+    expect(store.events[0]).not.toHaveProperty('sortValue')
+  })
+
+  it('strips legacy sortValue field when loading old data', () => {
+    const legacyData = {
+      version: 1,
+      timelines: [],
+      events: [
+        {
+          id: 'event-1',
+          timelineId: 'timeline-1',
+          timeLabel: '前221年',
+          sortValue: -221,
+          title: '秦统一六国',
+          hint: '秦',
+          summary: '秦完成统一。',
+          detail: '秦灭六国。',
+          keywords: ['秦'],
+          personIds: [],
+          createdAt: '2026-06-21T00:00:00.000Z',
+          updatedAt: '2026-06-21T00:00:00.000Z',
+        },
+      ],
+      people: [],
+      cards: [],
+      studyRecords: [],
+    }
+    localStorage.setItem(
+      'history-memorization:data',
+      JSON.stringify(legacyData),
+    )
+
+    const store = useHistoryStore()
+
+    expect(store.events).toHaveLength(1)
+    expect(store.events[0]).not.toHaveProperty('sortValue')
+    expect(store.events[0].title).toBe('秦统一六国')
+  })
+
+  it('sorts events with mixed BCE, year-suffixed, and fuzzy time labels', () => {
+    const store = useHistoryStore()
+    const timeline = store.createTimeline({
+      name: '混合时间格式',
+      description: '',
+      tags: [],
+    })
+
+    const labels = [
+      '10月革命', // 兜底 MAX
+      '1911年10月', // 行首数字+年（1911）
+      '1840年', // 行首数字+年
+      '公元前221年', // BCE（值 -221）
+      '前221年', // BCE（值 -221）
+      '', // 兜底 MAX
+      '民国19年', // 兜底 MAX（不是 3-4 位数字）
+    ]
+    labels.forEach((label, index) => {
+      store.createEvent({
+        timelineId: timeline.id,
+        timeLabel: label,
+        title: `事件${index}`,
+        hint: '',
+        summary: '',
+        detail: '',
+        keywords: [],
+        personIds: [],
+      })
+    })
+
+    const sorted = store
+      .eventsByTimeline(timeline.id)
+      .map((event) => event.timeLabel)
+
+    // 前 4 个按数值升序：两个 -221（按插入顺序，公元前221年 在 前221年 之前）、1840、1911
+    expect(sorted.slice(0, 4)).toEqual([
+      '公元前221年',
+      '前221年',
+      '1840年',
+      '1911年10月',
+    ])
+    // 后 3 个都是兜底 MAX_SAFE_INTEGER，顺序不固定（值相同），用集合比较
+    expect(sorted.slice(4).sort()).toEqual(['', '10月革命', '民国19年'].sort())
   })
 })

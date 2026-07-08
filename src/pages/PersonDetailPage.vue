@@ -55,7 +55,6 @@ function createRelatedEvent() {
   const event = store.createEvent({
     timelineId,
     timeLabel: eventForm.timeLabel.trim(),
-    sortValue: 0,
     title: eventForm.title.trim(),
     hint: eventForm.hint.trim(),
     summary: eventForm.summary.trim(),
@@ -114,9 +113,7 @@ function parseCommaSeparatedText(value: string): string[] {
           <h3>主要成就</h3>
           <div class="detail-text">{{ person.achievements }}</div>
         </section>
-
       </article>
-
     </section>
 
     <form class="panel event-form" @submit.prevent="createRelatedEvent">

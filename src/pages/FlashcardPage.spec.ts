@@ -115,7 +115,9 @@ describe('FlashcardPage', () => {
 
     expect(wrapper.find('[aria-label="卡片详情"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="背诵练习"]').exists()).toBe(false)
-    expect(wrapper.find('[aria-label="卡片详情"]').text()).not.toContain('开始背诵')
+    expect(wrapper.find('[aria-label="卡片详情"]').text()).not.toContain(
+      '开始背诵',
+    )
 
     await wrapper.get('[data-test="toggle-study-mode"]').trigger('click')
     await wrapper.get('.card-preview-button').trigger('click')
@@ -171,7 +173,6 @@ describe('FlashcardPage', () => {
     const event = store.createEvent({
       timelineId: timeline.id,
       timeLabel: '1898年',
-      sortValue: 1898,
       title: '戊戌变法',
       hint: '',
       summary: '',
@@ -224,7 +225,9 @@ describe('FlashcardPage', () => {
 
     await wrapper.get('.edit-card-button').trigger('click')
     await wrapper
-      .findAll('[role="dialog"][aria-label="编辑卡片"] input[placeholder="用英文逗号分隔"]')[2]
+      .findAll(
+        '[role="dialog"][aria-label="编辑卡片"] input[placeholder="用英文逗号分隔"]',
+      )[2]
       .setValue('')
     await wrapper
       .findAll('[role="dialog"][aria-label="编辑卡片"] .action-row button')[2]
@@ -234,13 +237,49 @@ describe('FlashcardPage', () => {
     expect(store.cards.find((item) => item.id === card.id)?.eventIds).toEqual([
       'event-1911',
     ])
-    expect(wrapper.get('[role="dialog"][aria-label="编辑卡片"]').text()).toContain(
-      '编辑卡片',
-    )
     expect(
-      wrapper
-        .findAll('[role="dialog"][aria-label="编辑卡片"] input[placeholder="用英文逗号分隔"]')[2]
-        .element,
+      wrapper.get('[role="dialog"][aria-label="编辑卡片"]').text(),
+    ).toContain('编辑卡片')
+    expect(
+      wrapper.findAll(
+        '[role="dialog"][aria-label="编辑卡片"] input[placeholder="用英文逗号分隔"]',
+      )[2].element,
     ).toHaveProperty('value', 'event-1911')
+  })
+
+  it('uses the latest study result when a card is marked multiple times', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useHistoryStore()
+    const card = store.createCard({
+      front: '贞观之治是哪位皇帝？',
+      back: '唐太宗李世民。',
+      hint: '',
+      keywords: ['唐代'],
+      personIds: [],
+      eventIds: [],
+    })
+    store.recordStudy('card', card.id, 'forgotten')
+    vi.setSystemTime(new Date('2026-01-02T00:00:00Z'))
+    store.recordStudy('card', card.id, 'remembered')
+
+    const wrapper = mount(FlashcardPage, {
+      global: {
+        plugins: [pinia],
+      },
+    })
+
+    await wrapper.get('[data-test="toggle-draw-form"]').trigger('click')
+    await wrapper.get('[data-test="draw-range-toggle"]').trigger('click')
+    await wrapper.get('[data-test="draw-range-remembered"]').trigger('click')
+    await wrapper.get('[data-test="draw-form"]').trigger('submit')
+
+    const drawnCardList = wrapper.get('[data-test="drawn-card-list"]')
+
+    expect(drawnCardList.text()).toContain(card.front)
+
+    vi.useRealTimers()
   })
 })

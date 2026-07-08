@@ -1,7 +1,9 @@
-import type { IHistoryData } from './historyTypes'
+import type { IHistoryData, IHistoryEvent } from './historyTypes'
 import type { IStudyCard } from './historyTypes'
 
-const REQUIRED_COLLECTIONS: Array<keyof IHistoryData> = [
+export const CURRENT_SCHEMA_VERSION = 1
+
+const REQUIRED_COLLECTIONS: Array<keyof Omit<IHistoryData, 'version'>> = [
   'timelines',
   'events',
   'people',
@@ -11,6 +13,7 @@ const REQUIRED_COLLECTIONS: Array<keyof IHistoryData> = [
 
 export function createEmptyHistoryData(): IHistoryData {
   return {
+    version: CURRENT_SCHEMA_VERSION,
     timelines: [],
     events: [],
     people: [],
@@ -22,6 +25,11 @@ export function createEmptyHistoryData(): IHistoryData {
 export function parseHistoryData(value: unknown): IHistoryData {
   if (!isRecord(value)) {
     throw new Error('导入文件格式不正确')
+  }
+
+  const version = typeof value.version === 'number' ? value.version : 0
+  if (version > CURRENT_SCHEMA_VERSION) {
+    throw new Error('导入文件版本过高，请升级应用')
   }
 
   for (const key of REQUIRED_COLLECTIONS) {
@@ -46,13 +54,24 @@ export function parseHistoryData(value: unknown): IHistoryData {
     throw new Error('导入文件格式不正确')
   }
 
+  // v0 (legacy, no version field) → v1 is a shape no-op: just inject version.
+  // Future v1 → v2 migrations would dispatch on `version` here.
   return {
+    version: CURRENT_SCHEMA_VERSION,
     timelines,
-    events,
+    events: events.map(stripLegacySortValue),
     people,
     cards: cards.map(normalizeStudyCard),
     studyRecords,
   } as IHistoryData
+}
+
+function stripLegacySortValue(value: unknown): IHistoryEvent {
+  const event = { ...(value as object) } as IHistoryEvent & {
+    sortValue?: unknown
+  }
+  delete event.sortValue
+  return event
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -77,7 +96,6 @@ function isHistoryEvent(value: unknown): boolean {
     isString(value.id) &&
     isString(value.timelineId) &&
     isString(value.timeLabel) &&
-    isFiniteNumber(value.sortValue) &&
     isString(value.title) &&
     isString(value.hint) &&
     isString(value.summary) &&
@@ -147,8 +165,4 @@ function isString(value: unknown): value is string {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isString)
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
 }

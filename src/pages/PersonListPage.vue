@@ -4,10 +4,12 @@ import { RouterLink } from 'vue-router'
 import ConfirmActionModal from '@/components/ConfirmActionModal.vue'
 import EntityCard from '@/components/EntityCard.vue'
 import StudyRevealCard from '@/components/StudyRevealCard.vue'
+import { useConfirmModal } from '@/composables/useConfirmModal'
+import { useModalBehavior } from '@/composables/useModalBehavior'
 import type { IPerson, StudyResult } from '@/domain/historyTypes'
 import { useHistoryStore } from '@/stores/historyStore'
 
-const BULK_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
+const SINGLE_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
 
 const store = useHistoryStore()
 const errorMessage = ref('')
@@ -15,7 +17,6 @@ const isCreateFormVisible = ref(false)
 const editingPersonId = ref('')
 const isBatchDeleteVisible = ref(false)
 const isStudyModeEnabled = ref(false)
-const isBulkDeleteConfirmVisible = ref(false)
 const studyingPersonId = ref('')
 const selectedPersonIds = ref<string[]>([])
 const personEditForms = reactive<
@@ -40,12 +41,30 @@ const form = reactive({
   achievements: '',
   keywordsText: '',
 })
-let pendingBulkDeleteAction: (() => void) | null = null
+
+const modal = useConfirmModal()
+
+const { containerRef: createModalRef } = useModalBehavior(
+  isCreateFormVisible,
+  () => {
+    isCreateFormVisible.value = false
+  },
+)
 
 const pageError = computed(() => errorMessage.value || store.lastError)
 const studyingPerson = computed(() => {
-  return store.people.find((person) => person.id === studyingPersonId.value) ?? null
+  return (
+    store.people.find((person) => person.id === studyingPersonId.value) ?? null
+  )
 })
+
+const isPersonStudyVisible = computed(() => studyingPerson.value !== null)
+const { containerRef: personStudyModalRef } = useModalBehavior(
+  isPersonStudyVisible,
+  () => {
+    studyingPersonId.value = ''
+  },
+)
 const studyingPersonAnswer = computed(() => {
   if (!studyingPerson.value) {
     return ''
@@ -53,7 +72,8 @@ const studyingPersonAnswer = computed(() => {
 
   const relatedEvents = store.eventsByPerson(studyingPerson.value.id)
   const parts = [
-    studyingPerson.value.biography && `生平：\n${studyingPerson.value.biography}`,
+    studyingPerson.value.biography &&
+      `生平：\n${studyingPerson.value.biography}`,
     studyingPerson.value.achievements &&
       `主要成就：\n${studyingPerson.value.achievements}`,
     relatedEvents.length > 0 &&
@@ -62,16 +82,17 @@ const studyingPersonAnswer = computed(() => {
 
   return parts.join('\n\n')
 })
-const personStudyResults = computed(() => {
-  const results: Record<string, StudyResult> = {}
-
-  store.studyRecords.forEach((record) => {
+const latestResultByTarget = computed(() => {
+  const map = new Map<string, StudyResult>()
+  const sorted = [...store.studyRecords].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  )
+  for (const record of sorted) {
     if (record.targetType === 'person') {
-      results[record.targetId] = record.result
+      map.set(record.targetId, record.result)
     }
-  })
-
-  return results
+  }
+  return map
 })
 
 function createPerson() {
@@ -131,20 +152,16 @@ function updatePerson(person: IPerson) {
 }
 
 function deletePerson(person: IPerson) {
-  const confirmed = window.confirm(`确认删除人物“${person.name}”吗？`)
-
-  if (!confirmed) {
-    return
-  }
-
-  store.deletePerson(person.id)
-  delete personEditForms[person.id]
-  studyingPersonId.value =
-    studyingPersonId.value === person.id ? '' : studyingPersonId.value
-  selectedPersonIds.value = selectedPersonIds.value.filter(
-    (personId) => personId !== person.id,
-  )
-  errorMessage.value = ''
+  modal.request(`确认删除人物“${person.name}”吗？`, () => {
+    store.deletePerson(person.id)
+    delete personEditForms[person.id]
+    studyingPersonId.value =
+      studyingPersonId.value === person.id ? '' : studyingPersonId.value
+    selectedPersonIds.value = selectedPersonIds.value.filter(
+      (personId) => personId !== person.id,
+    )
+    errorMessage.value = ''
+  })
 }
 
 function showBatchDelete() {
@@ -178,7 +195,7 @@ function deleteSelectedPeople() {
 
   const selectedIdSet = new Set(selectedPersonIds.value)
 
-  requestBulkDeleteConfirmation(() => {
+  modal.request(SINGLE_DELETE_CONFIRM_MESSAGE, () => {
     selectedIdSet.forEach((personId) => {
       store.deletePerson(personId)
       delete personEditForms[personId]
@@ -197,7 +214,7 @@ function deleteSelectedPeople() {
 
 function deletePeopleByStudyResult(result: StudyResult) {
   const peopleToDelete = store.people.filter((person) => {
-    const latestResult = personStudyResults.value[person.id]
+    const latestResult = latestResultByTarget.value.get(person.id)
 
     return result === 'remembered'
       ? latestResult === 'remembered'
@@ -212,7 +229,7 @@ function deletePeopleByStudyResult(result: StudyResult) {
 
   const deletedIdSet = new Set(peopleToDelete.map((person) => person.id))
 
-  requestBulkDeleteConfirmation(() => {
+  modal.request(SINGLE_DELETE_CONFIRM_MESSAGE, () => {
     deletedIdSet.forEach((personId) => {
       store.deletePerson(personId)
       delete personEditForms[personId]
@@ -229,24 +246,6 @@ function deletePeopleByStudyResult(result: StudyResult) {
       : studyingPersonId.value
     errorMessage.value = ''
   })
-}
-
-function requestBulkDeleteConfirmation(action: () => void) {
-  pendingBulkDeleteAction = action
-  isBulkDeleteConfirmVisible.value = true
-}
-
-function confirmBulkDelete() {
-  const action = pendingBulkDeleteAction
-
-  pendingBulkDeleteAction = null
-  isBulkDeleteConfirmVisible.value = false
-  action?.()
-}
-
-function cancelBulkDelete() {
-  pendingBulkDeleteAction = null
-  isBulkDeleteConfirmVisible.value = false
 }
 
 function showPersonEditor(person: IPerson) {
@@ -319,17 +318,14 @@ function parseCommaSeparatedText(value: string): string[] {
     <header class="page-header">
       <h1>历史人物</h1>
       <p>整理人物生平、成就和关键词，方便按人物线索背诵。</p>
-      <button
-        class="primary-button"
-        type="button"
-        @click="toggleCreateForm"
-      >
+      <button class="primary-button" type="button" @click="toggleCreateForm">
         {{ isCreateFormVisible ? '收起新建' : '新建人物' }}
       </button>
     </header>
 
     <div
       v-if="isCreateFormVisible"
+      ref="createModalRef"
       class="study-modal"
       role="dialog"
       aria-modal="true"
@@ -351,7 +347,11 @@ function parseCommaSeparatedText(value: string): string[] {
           <div class="form-grid">
             <label>
               姓名
-              <input v-model="form.name" type="text" placeholder="例如：孙中山" />
+              <input
+                v-model="form.name"
+                type="text"
+                placeholder="例如：孙中山"
+              />
             </label>
 
             <label>
@@ -499,9 +499,9 @@ function parseCommaSeparatedText(value: string): string[] {
           />
           <span
             class="study-status"
-            :class="`study-status--${personStudyResults[person.id] ?? 'forgotten'}`"
+            :class="`study-status--${latestResultByTarget.get(person.id) ?? 'forgotten'}`"
           >
-            {{ getStudyStatusLabel(personStudyResults[person.id]) }}
+            {{ getStudyStatusLabel(latestResultByTarget.get(person.id)) }}
           </span>
         </RouterLink>
         <span v-if="person.keywords.length" class="tag-list">
@@ -539,7 +539,10 @@ function parseCommaSeparatedText(value: string): string[] {
 
           <label>
             主要成就
-            <textarea v-model="getPersonEditForm(person).achievements" rows="4" />
+            <textarea
+              v-model="getPersonEditForm(person).achievements"
+              rows="4"
+            />
           </label>
 
           <label>
@@ -568,6 +571,7 @@ function parseCommaSeparatedText(value: string): string[] {
 
     <div
       v-if="studyingPerson"
+      ref="personStudyModalRef"
       class="study-modal"
       role="dialog"
       aria-modal="true"
@@ -592,10 +596,10 @@ function parseCommaSeparatedText(value: string): string[] {
     </div>
 
     <ConfirmActionModal
-      v-if="isBulkDeleteConfirmVisible"
-      :message="BULK_DELETE_CONFIRM_MESSAGE"
-      @confirm="confirmBulkDelete"
-      @cancel="cancelBulkDelete"
+      v-if="modal.isVisible.value"
+      :message="modal.message.value"
+      @confirm="modal.confirm"
+      @cancel="modal.cancel"
     />
   </section>
 </template>

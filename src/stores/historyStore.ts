@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
 import { createId } from '@/domain/createId'
 import {
+  CURRENT_SCHEMA_VERSION,
   createEmptyHistoryData,
   parseHistoryData,
 } from '@/domain/historySchema'
+import { safeLocalStorage } from '@/domain/safeLocalStorage'
 import type {
   IHistoryData,
   IHistoryEvent,
@@ -27,11 +29,24 @@ type HistoryState = IHistoryData & {
   lastError: string
 }
 
+const LOAD_ERROR_MESSAGE = '本地数据损坏，已重置为空数据。'
+
 export const useHistoryStore = defineStore('history', {
-  state: (): HistoryState => ({
-    ...loadHistoryData(),
-    lastError: '',
-  }),
+  state: (): HistoryState => {
+    const raw = safeLocalStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      return { ...createEmptyHistoryData(), lastError: '' }
+    }
+    try {
+      return { ...parseHistoryData(JSON.parse(raw)), lastError: '' }
+    } catch (error) {
+      console.warn('Failed to load history data:', error)
+      return {
+        ...createEmptyHistoryData(),
+        lastError: LOAD_ERROR_MESSAGE,
+      }
+    }
+  },
   actions: {
     createTimeline(input: TimelineInput): ITimeline {
       const timeline: ITimeline = {
@@ -67,7 +82,9 @@ export const useHistoryStore = defineStore('history', {
       this.timelines = this.timelines.filter((timeline) => timeline.id !== id)
       this.events = this.events.filter((event) => event.timelineId !== id)
       this.cards.forEach((card) => {
-        card.eventIds = card.eventIds.filter((eventId) => !eventIdSet.has(eventId))
+        card.eventIds = card.eventIds.filter(
+          (eventId) => !eventIdSet.has(eventId),
+        )
       })
       this.studyRecords = this.studyRecords.filter(
         (record) =>
@@ -80,7 +97,6 @@ export const useHistoryStore = defineStore('history', {
       const event: IHistoryEvent = {
         id: createId(),
         ...input,
-        sortValue: getTimeSortValue(input.timeLabel),
         personIds: input.personIds ?? [],
         createdAt: now(),
         updatedAt: now(),
@@ -97,7 +113,6 @@ export const useHistoryStore = defineStore('history', {
 
       Object.assign(event, {
         ...input,
-        sortValue: getTimeSortValue(input.timeLabel),
         personIds: input.personIds ?? [],
         updatedAt: now(),
       })
@@ -215,6 +230,7 @@ export const useHistoryStore = defineStore('history', {
     },
     replaceAll(data: unknown): void {
       const parsed = parseHistoryData(data)
+      this.version = parsed.version
       this.timelines = parsed.timelines
       this.events = parsed.events
       this.people = parsed.people
@@ -222,29 +238,42 @@ export const useHistoryStore = defineStore('history', {
       this.studyRecords = parsed.studyRecords
       this.persist()
     },
-    persist(): boolean {
-      try {
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            timelines: this.timelines,
-            events: this.events,
-            people: this.people,
-            cards: this.cards,
-            studyRecords: this.studyRecords,
-          }),
-        )
-        this.lastError = ''
-        return true
-      } catch {
-        this.lastError = SAVE_ERROR_MESSAGE
-        return false
+    exportSnapshot(): IHistoryData {
+      return {
+        version: CURRENT_SCHEMA_VERSION,
+        timelines: this.timelines,
+        events: this.events,
+        people: this.people,
+        cards: this.cards,
+        studyRecords: this.studyRecords,
       }
+    },
+    persist(): boolean {
+      const ok = safeLocalStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: CURRENT_SCHEMA_VERSION,
+          timelines: this.timelines,
+          events: this.events,
+          people: this.people,
+          cards: this.cards,
+          studyRecords: this.studyRecords,
+        }),
+      )
+      if (ok) {
+        this.lastError = ''
+      } else {
+        this.lastError = SAVE_ERROR_MESSAGE
+      }
+      return ok
     },
     eventsByTimeline(timelineId: string): IHistoryEvent[] {
       return this.events
         .filter((event) => event.timelineId === timelineId)
-        .sort((a, b) => getTimeSortValue(a.timeLabel) - getTimeSortValue(b.timeLabel))
+        .sort(
+          (a, b) =>
+            getTimeSortValue(a.timeLabel) - getTimeSortValue(b.timeLabel),
+        )
     },
     eventsByPerson(personId: string): IHistoryEvent[] {
       return this.events.filter((event) => event.personIds.includes(personId))
@@ -290,31 +319,21 @@ export const useHistoryStore = defineStore('history', {
   },
 })
 
-function loadHistoryData(): IHistoryData {
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) {
-    return createEmptyHistoryData()
-  }
-
-  try {
-    return parseHistoryData(JSON.parse(raw))
-  } catch {
-    return createEmptyHistoryData()
-  }
-}
-
 function now(): string {
   return new Date().toISOString()
 }
 
 function getTimeSortValue(timeLabel: string): number {
-  const matchedYear = timeLabel.match(/\d+/)
-  if (!matchedYear) {
-    return Number.MAX_SAFE_INTEGER
-  }
+  if (!timeLabel) return Number.MAX_SAFE_INTEGER
 
-  const year = Number(matchedYear[0])
-  const isBeforeCommonEra = /公元前|前/.test(timeLabel)
+  const bceMatch = timeLabel.match(/(?:公元前|前)\s*(\d+)/)
+  if (bceMatch) return -Number(bceMatch[1])
 
-  return isBeforeCommonEra ? -year : year
+  const yearMatch = timeLabel.match(/^\s*(\d+)\s*年/)
+  if (yearMatch) return Number(yearMatch[1])
+
+  const anyYearMatch = timeLabel.match(/(\d{3,4})\s*年/)
+  if (anyYearMatch) return Number(anyYearMatch[1])
+
+  return Number.MAX_SAFE_INTEGER
 }

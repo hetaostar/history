@@ -2,12 +2,14 @@
 import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import ConfirmActionModal from '@/components/ConfirmActionModal.vue'
+import { useConfirmModal } from '@/composables/useConfirmModal'
+import { useModalBehavior } from '@/composables/useModalBehavior'
 import StudyRevealCard from '@/components/StudyRevealCard.vue'
 import TimelineSnake from '@/components/TimelineSnake.vue'
 import type { IHistoryEvent, StudyResult } from '@/domain/historyTypes'
 import { useHistoryStore } from '@/stores/historyStore'
 
-const BULK_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
+const SINGLE_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
 
 const route = useRoute()
 const store = useHistoryStore()
@@ -19,7 +21,6 @@ const isCreateFormVisible = ref(false)
 const isStudyVisible = ref(false)
 const isStudyModeEnabled = ref(false)
 const isBatchDeleteVisible = ref(false)
-const isBulkDeleteConfirmVisible = ref(false)
 const errorMessage = ref('')
 const selectedEventIds = ref<string[]>([])
 const eventEditForms = reactive<Record<string, IEventForm>>({})
@@ -45,7 +46,8 @@ const form = reactive({
   personIds: [] as string[],
   personIdsText: '',
 })
-let pendingBulkDeleteAction: (() => void) | null = null
+
+const modal = useConfirmModal()
 
 const timeline = computed(() =>
   store.timelines.find((item) => item.id === timelineId.value),
@@ -55,7 +57,9 @@ const events = computed(() => store.eventsByTimeline(timelineId.value))
 const pageError = computed(() => errorMessage.value || store.lastError)
 
 const selectedEvent = computed(() => {
-  return events.value.find((event) => event.id === selectedEventId.value) ?? null
+  return (
+    events.value.find((event) => event.id === selectedEventId.value) ?? null
+  )
 })
 
 const editingEvent = computed(() => {
@@ -63,18 +67,64 @@ const editingEvent = computed(() => {
 })
 
 const studyingEvent = computed(() => {
-  return events.value.find((event) => event.id === studyingEventId.value) ?? null
+  return (
+    events.value.find((event) => event.id === studyingEventId.value) ?? null
+  )
+})
+
+const { containerRef: createModalRef } = useModalBehavior(
+  isCreateFormVisible,
+  () => {
+    isCreateFormVisible.value = false
+  },
+)
+
+const isEventDetailVisible = computed(() => selectedEvent.value !== null)
+const { containerRef: eventDetailModalRef } = useModalBehavior(
+  isEventDetailVisible,
+  () => {
+    selectedEventId.value = ''
+    isStudyVisible.value = false
+  },
+)
+
+const isStudyModalVisible = computed(
+  () => isStudyVisible.value && studyingEvent.value !== null,
+)
+const { containerRef: studyModalRef } = useModalBehavior(
+  isStudyModalVisible,
+  () => {
+    studyingEventId.value = ''
+    isStudyVisible.value = false
+  },
+)
+
+const isEventEditorVisible = computed(() => editingEvent.value !== null)
+const { containerRef: eventEditorModalRef } = useModalBehavior(
+  isEventEditorVisible,
+  () => {
+    editingEventId.value = ''
+  },
+)
+
+const latestResultByTarget = computed(() => {
+  const map = new Map<string, StudyResult>()
+  const sorted = [...store.studyRecords].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  )
+  for (const record of sorted) {
+    if (record.targetType === 'event') {
+      map.set(record.targetId, record.result)
+    }
+  }
+  return map
 })
 
 const eventStudyResults = computed(() => {
-  const results: Record<string, StudyResult> = {}
-
-  store.studyRecords.forEach((record) => {
-    if (record.targetType === 'event') {
-      results[record.targetId] = record.result
-    }
-  })
-
+  const results: Record<string, StudyResult | undefined> = {}
+  for (const [id, result] of latestResultByTarget.value) {
+    results[id] = result
+  }
   return results
 })
 
@@ -103,7 +153,6 @@ function createEvent() {
   const event = store.createEvent({
     timelineId: timelineId.value,
     timeLabel: form.timeLabel.trim(),
-    sortValue: 0,
     title: form.title.trim(),
     hint: form.hint.trim(),
     summary: form.summary.trim(),
@@ -127,7 +176,9 @@ function getEventEditForm(event: IHistoryEvent): IEventForm {
     detail: event.detail,
     keywordsText: event.keywords.join(','),
     personIds: event.personIds.filter(isKnownPersonId),
-    personIdsText: event.personIds.filter((id) => !isKnownPersonId(id)).join(','),
+    personIdsText: event.personIds
+      .filter((id) => !isKnownPersonId(id))
+      .join(','),
   }
 
   return eventEditForms[event.id]
@@ -144,7 +195,6 @@ function updateEvent(event: IHistoryEvent) {
   store.updateEvent(event.id, {
     timelineId: event.timelineId,
     timeLabel: editForm.timeLabel.trim(),
-    sortValue: event.sortValue,
     title: editForm.title.trim(),
     hint: editForm.hint.trim(),
     summary: editForm.summary.trim(),
@@ -156,20 +206,18 @@ function updateEvent(event: IHistoryEvent) {
 }
 
 function deleteEvent(event: IHistoryEvent) {
-  const confirmed = window.confirm(`确认删除事件“${event.title}”吗？`)
-
-  if (!confirmed) {
-    return
-  }
-
-  store.deleteEvent(event.id)
-  delete eventEditForms[event.id]
-  selectedEventId.value = ''
-  editingEventId.value = ''
-  studyingEventId.value = ''
-  selectedEventIds.value = selectedEventIds.value.filter((eventId) => eventId !== event.id)
-  isStudyVisible.value = false
-  errorMessage.value = ''
+  modal.request(`确认删除事件“${event.title}”吗？`, () => {
+    store.deleteEvent(event.id)
+    delete eventEditForms[event.id]
+    selectedEventId.value = ''
+    editingEventId.value = ''
+    studyingEventId.value = ''
+    selectedEventIds.value = selectedEventIds.value.filter(
+      (eventId) => eventId !== event.id,
+    )
+    isStudyVisible.value = false
+    errorMessage.value = ''
+  })
 }
 
 function selectEvent(event: IHistoryEvent) {
@@ -224,16 +272,22 @@ function deleteSelectedEvents() {
   const selectedIdSet = new Set(selectedEventIds.value)
   const shouldCloseStudy = selectedIdSet.has(studyingEventId.value)
 
-  requestBulkDeleteConfirmation(() => {
+  modal.request(SINGLE_DELETE_CONFIRM_MESSAGE, () => {
     selectedIdSet.forEach((eventId) => {
       store.deleteEvent(eventId)
       delete eventEditForms[eventId]
     })
     selectedEventIds.value = []
     isBatchDeleteVisible.value = false
-    selectedEventId.value = selectedIdSet.has(selectedEventId.value) ? '' : selectedEventId.value
-    editingEventId.value = selectedIdSet.has(editingEventId.value) ? '' : editingEventId.value
-    studyingEventId.value = selectedIdSet.has(studyingEventId.value) ? '' : studyingEventId.value
+    selectedEventId.value = selectedIdSet.has(selectedEventId.value)
+      ? ''
+      : selectedEventId.value
+    editingEventId.value = selectedIdSet.has(editingEventId.value)
+      ? ''
+      : editingEventId.value
+    studyingEventId.value = selectedIdSet.has(studyingEventId.value)
+      ? ''
+      : studyingEventId.value
     isStudyVisible.value = shouldCloseStudy ? false : isStudyVisible.value
     errorMessage.value = ''
   })
@@ -241,7 +295,7 @@ function deleteSelectedEvents() {
 
 function deleteEventsByStudyResult(result: StudyResult) {
   const eventsToDelete = events.value.filter((event) => {
-    const latestResult = eventStudyResults.value[event.id]
+    const latestResult = latestResultByTarget.value.get(event.id)
 
     return result === 'remembered'
       ? latestResult === 'remembered'
@@ -257,7 +311,7 @@ function deleteEventsByStudyResult(result: StudyResult) {
   const deletedIdSet = new Set(eventsToDelete.map((event) => event.id))
   const shouldCloseStudy = deletedIdSet.has(studyingEventId.value)
 
-  requestBulkDeleteConfirmation(() => {
+  modal.request(SINGLE_DELETE_CONFIRM_MESSAGE, () => {
     deletedIdSet.forEach((eventId) => {
       store.deleteEvent(eventId)
       delete eventEditForms[eventId]
@@ -266,30 +320,18 @@ function deleteEventsByStudyResult(result: StudyResult) {
       (eventId) => !deletedIdSet.has(eventId),
     )
     isBatchDeleteVisible.value = false
-    selectedEventId.value = deletedIdSet.has(selectedEventId.value) ? '' : selectedEventId.value
-    editingEventId.value = deletedIdSet.has(editingEventId.value) ? '' : editingEventId.value
-    studyingEventId.value = deletedIdSet.has(studyingEventId.value) ? '' : studyingEventId.value
+    selectedEventId.value = deletedIdSet.has(selectedEventId.value)
+      ? ''
+      : selectedEventId.value
+    editingEventId.value = deletedIdSet.has(editingEventId.value)
+      ? ''
+      : editingEventId.value
+    studyingEventId.value = deletedIdSet.has(studyingEventId.value)
+      ? ''
+      : studyingEventId.value
     isStudyVisible.value = shouldCloseStudy ? false : isStudyVisible.value
     errorMessage.value = ''
   })
-}
-
-function requestBulkDeleteConfirmation(action: () => void) {
-  pendingBulkDeleteAction = action
-  isBulkDeleteConfirmVisible.value = true
-}
-
-function confirmBulkDelete() {
-  const action = pendingBulkDeleteAction
-
-  pendingBulkDeleteAction = null
-  isBulkDeleteConfirmVisible.value = false
-  action?.()
-}
-
-function cancelBulkDelete() {
-  pendingBulkDeleteAction = null
-  isBulkDeleteConfirmVisible.value = false
 }
 
 function closeEventDetail() {
@@ -362,17 +404,14 @@ function isKnownPersonId(personId: string): boolean {
           {{ tag }}
         </span>
       </div>
-      <button
-        class="primary-button"
-        type="button"
-        @click="toggleCreateForm"
-      >
+      <button class="primary-button" type="button" @click="toggleCreateForm">
         {{ isCreateFormVisible ? '收起添加' : '添加历史事件' }}
       </button>
     </header>
 
     <div
       v-if="isCreateFormVisible"
+      ref="createModalRef"
       class="event-modal"
       role="dialog"
       aria-modal="true"
@@ -394,18 +433,30 @@ function isKnownPersonId(personId: string): boolean {
           <div class="form-grid">
             <label>
               时间
-              <input v-model="form.timeLabel" type="text" placeholder="例如：1840年" />
+              <input
+                v-model="form.timeLabel"
+                type="text"
+                placeholder="例如：1840年"
+              />
             </label>
           </div>
 
           <label>
             标题
-            <input v-model="form.title" type="text" placeholder="例如：鸦片战争" />
+            <input
+              v-model="form.title"
+              type="text"
+              placeholder="例如：鸦片战争"
+            />
           </label>
 
           <label>
             提示
-            <input v-model="form.hint" type="text" placeholder="用于背诵时提示自己" />
+            <input
+              v-model="form.hint"
+              type="text"
+              placeholder="用于背诵时提示自己"
+            />
           </label>
 
           <label>
@@ -537,6 +588,7 @@ function isKnownPersonId(personId: string): boolean {
 
     <div
       v-if="selectedEvent"
+      ref="eventDetailModalRef"
       class="event-modal"
       role="dialog"
       aria-modal="true"
@@ -549,38 +601,38 @@ function isKnownPersonId(personId: string): boolean {
         </button>
 
         <article class="panel event-detail">
-            <p class="subtitle">{{ selectedEvent.timeLabel }}</p>
-            <h2>{{ selectedEvent.title }}</h2>
-            <p v-if="selectedEvent.summary">{{ selectedEvent.summary }}</p>
-            <p v-if="selectedEvent.hint" class="hint">
-              背诵提示：{{ selectedEvent.hint }}
-            </p>
-            <div v-if="selectedEvent.detail" class="detail-text">
-              {{ selectedEvent.detail }}
-            </div>
-            <div v-if="selectedEvent.keywords.length" class="tag-list">
-              <span
-                v-for="keyword in selectedEvent.keywords"
-                :key="keyword"
-                class="tag"
-              >
-                {{ keyword }}
-              </span>
-            </div>
-            <p v-if="selectedEvent.personIds.length" class="person-ids">
-              关联人物 ID：{{ selectedEvent.personIds.join('，') }}
-            </p>
+          <p class="subtitle">{{ selectedEvent.timeLabel }}</p>
+          <h2>{{ selectedEvent.title }}</h2>
+          <p v-if="selectedEvent.summary">{{ selectedEvent.summary }}</p>
+          <p v-if="selectedEvent.hint" class="hint">
+            背诵提示：{{ selectedEvent.hint }}
+          </p>
+          <div v-if="selectedEvent.detail" class="detail-text">
+            {{ selectedEvent.detail }}
+          </div>
+          <div v-if="selectedEvent.keywords.length" class="tag-list">
+            <span
+              v-for="keyword in selectedEvent.keywords"
+              :key="keyword"
+              class="tag"
+            >
+              {{ keyword }}
+            </span>
+          </div>
+          <p v-if="selectedEvent.personIds.length" class="person-ids">
+            关联人物 ID：{{ selectedEvent.personIds.join('，') }}
+          </p>
 
-            <div class="action-row">
-              <button type="button" @click="closeEventDetail">返回时间线</button>
-            </div>
-          </article>
-
+          <div class="action-row">
+            <button type="button" @click="closeEventDetail">返回时间线</button>
+          </div>
+        </article>
       </section>
     </div>
 
     <div
       v-if="isStudyVisible && studyingEvent"
+      ref="studyModalRef"
       class="event-modal"
       role="dialog"
       aria-modal="true"
@@ -607,6 +659,7 @@ function isKnownPersonId(personId: string): boolean {
 
     <div
       v-if="editingEvent"
+      ref="eventEditorModalRef"
       class="event-modal"
       role="dialog"
       aria-modal="true"
@@ -618,11 +671,17 @@ function isKnownPersonId(personId: string): boolean {
           关闭
         </button>
 
-        <form class="panel event-form" @submit.prevent="updateEvent(editingEvent)">
+        <form
+          class="panel event-form"
+          @submit.prevent="updateEvent(editingEvent)"
+        >
           <h2>编辑事件</h2>
           <label>
             时间
-            <input v-model="getEventEditForm(editingEvent).timeLabel" type="text" />
+            <input
+              v-model="getEventEditForm(editingEvent).timeLabel"
+              type="text"
+            />
           </label>
 
           <label>
@@ -637,12 +696,18 @@ function isKnownPersonId(personId: string): boolean {
 
           <label>
             摘要
-            <textarea v-model="getEventEditForm(editingEvent).summary" rows="2" />
+            <textarea
+              v-model="getEventEditForm(editingEvent).summary"
+              rows="2"
+            />
           </label>
 
           <label>
             详情
-            <textarea v-model="getEventEditForm(editingEvent).detail" rows="5" />
+            <textarea
+              v-model="getEventEditForm(editingEvent).detail"
+              rows="5"
+            />
           </label>
 
           <div class="form-grid">
@@ -656,7 +721,10 @@ function isKnownPersonId(personId: string): boolean {
 
             <label>
               选择关联人物
-              <select v-model="getEventEditForm(editingEvent).personIds" multiple>
+              <select
+                v-model="getEventEditForm(editingEvent).personIds"
+                multiple
+              >
                 <option
                   v-for="person in store.people"
                   :key="person.id"
@@ -692,10 +760,10 @@ function isKnownPersonId(personId: string): boolean {
     </div>
 
     <ConfirmActionModal
-      v-if="isBulkDeleteConfirmVisible"
-      :message="BULK_DELETE_CONFIRM_MESSAGE"
-      @confirm="confirmBulkDelete"
-      @cancel="cancelBulkDelete"
+      v-if="modal.isVisible.value"
+      :message="modal.message.value"
+      @confirm="modal.confirm"
+      @cancel="modal.cancel"
     />
   </section>
 

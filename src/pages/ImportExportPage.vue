@@ -12,7 +12,7 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 function exportData() {
-  const json = JSON.stringify(store.$state, null, 2)
+  const json = JSON.stringify(store.exportSnapshot(), null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

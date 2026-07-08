@@ -14,7 +14,6 @@ export interface IHistoryEvent {
   id: string
   timelineId: string
   timeLabel: string
-  sortValue: number
   title: string
   hint: string
   summary: string
@@ -58,6 +57,7 @@ export interface IStudyRecord {
 }
 
 export interface IHistoryData {
+  version: number
   timelines: ITimeline[]
   events: IHistoryEvent[]
   people: IPerson[]

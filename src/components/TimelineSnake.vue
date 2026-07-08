@@ -42,6 +42,7 @@ function selectEvent(event: IHistoryEvent) {
         class="event-node"
         role="button"
         tabindex="0"
+        :data-test="`event-node-${event.id}`"
         @click="selectEvent(event)"
         @keydown.enter.prevent="selectEvent(event)"
         @keydown.space.prevent="selectEvent(event)"
@@ -74,7 +75,11 @@ function selectEvent(event: IHistoryEvent) {
           class="study-status"
           :class="`study-status--${props.studyResults?.[event.id] ?? 'forgotten'}`"
         >
-          {{ props.studyResults?.[event.id] === 'remembered' ? '已背过' : '未背过' }}
+          {{
+            props.studyResults?.[event.id] === 'remembered'
+              ? '已背过'
+              : '未背过'
+          }}
         </span>
       </article>
     </div>
@@ -101,7 +106,7 @@ function selectEvent(event: IHistoryEvent) {
   left: 0;
   right: 0;
   height: 8px;
-  content: "";
+  content: '';
   background: #5867e8;
   border-radius: 999px;
   transform: translateY(-50%);
@@ -112,7 +117,7 @@ function selectEvent(event: IHistoryEvent) {
   top: 50%;
   width: 48px;
   height: 72px;
-  content: "";
+  content: '';
   border: 8px solid #5867e8;
 }
 

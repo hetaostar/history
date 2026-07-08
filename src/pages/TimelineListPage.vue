@@ -2,17 +2,26 @@
 import { computed, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import ConfirmActionModal from '@/components/ConfirmActionModal.vue'
+import { useConfirmModal } from '@/composables/useConfirmModal'
+import { useModalBehavior } from '@/composables/useModalBehavior'
 import type { ITimeline, StudyResult } from '@/domain/historyTypes'
 import { useHistoryStore } from '@/stores/historyStore'
 
-const BULK_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
+type TimelineStudyStatus = 'empty' | 'remembered' | 'forgotten'
+
+const timelineStatusLabels: Record<TimelineStudyStatus, string> = {
+  empty: '未开始',
+  remembered: '已背过',
+  forgotten: '未背过',
+}
+
+const SINGLE_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
 
 const store = useHistoryStore()
 const errorMessage = ref('')
 const isCreateFormVisible = ref(false)
 const editingTimelineId = ref('')
 const isBatchDeleteVisible = ref(false)
-const isBulkDeleteConfirmVisible = ref(false)
 const selectedTimelineIds = ref<string[]>([])
 const timelineEditForms = reactive<
   Record<string, { name: string; description: string; tagsText: string }>
@@ -23,7 +32,15 @@ const form = reactive({
   description: '',
   tagsText: '',
 })
-let pendingBulkDeleteAction: (() => void) | null = null
+
+const modal = useConfirmModal()
+
+const { containerRef: createModalRef } = useModalBehavior(
+  isCreateFormVisible,
+  () => {
+    isCreateFormVisible.value = false
+  },
+)
 
 const pageError = computed(() => errorMessage.value || store.lastError)
 const eventStudyResults = computed(() => {
@@ -88,20 +105,16 @@ function updateTimeline(timeline: ITimeline) {
 }
 
 function deleteTimeline(timeline: ITimeline) {
-  const confirmed = window.confirm(`确认删除时间线“${timeline.name}”吗？`)
-
-  if (!confirmed) {
-    return
-  }
-
-  store.deleteTimeline(timeline.id)
-  delete timelineEditForms[timeline.id]
-  selectedTimelineIds.value = selectedTimelineIds.value.filter(
-    (timelineId) => timelineId !== timeline.id,
-  )
-  editingTimelineId.value =
-    editingTimelineId.value === timeline.id ? '' : editingTimelineId.value
-  errorMessage.value = ''
+  modal.request(`确认删除时间线“${timeline.name}”吗？`, () => {
+    store.deleteTimeline(timeline.id)
+    delete timelineEditForms[timeline.id]
+    selectedTimelineIds.value = selectedTimelineIds.value.filter(
+      (timelineId) => timelineId !== timeline.id,
+    )
+    editingTimelineId.value =
+      editingTimelineId.value === timeline.id ? '' : editingTimelineId.value
+    errorMessage.value = ''
+  })
 }
 
 function showBatchDelete() {
@@ -123,7 +136,9 @@ function toggleCreateForm() {
 
 function toggleSelectedTimeline(timelineId: string) {
   selectedTimelineIds.value = selectedTimelineIds.value.includes(timelineId)
-    ? selectedTimelineIds.value.filter((selectedId) => selectedId !== timelineId)
+    ? selectedTimelineIds.value.filter(
+        (selectedId) => selectedId !== timelineId,
+      )
     : [...selectedTimelineIds.value, timelineId]
 }
 
@@ -135,7 +150,7 @@ function deleteSelectedTimelines() {
 
   const selectedIdSet = new Set(selectedTimelineIds.value)
 
-  requestBulkDeleteConfirmation(() => {
+  modal.request(SINGLE_DELETE_CONFIRM_MESSAGE, () => {
     selectedIdSet.forEach((timelineId) => {
       store.deleteTimeline(timelineId)
       delete timelineEditForms[timelineId]
@@ -151,9 +166,8 @@ function deleteSelectedTimelines() {
 
 function deleteTimelinesByStudyStatus(result: StudyResult) {
   const timelinesToDelete = store.timelines.filter((timeline) => {
-    const isRemembered = isTimelineRemembered(timeline)
-
-    return result === 'remembered' ? isRemembered : !isRemembered
+    const status = getTimelineStudyStatus(timeline)
+    return status === result
   })
 
   if (timelinesToDelete.length === 0) {
@@ -164,7 +178,7 @@ function deleteTimelinesByStudyStatus(result: StudyResult) {
 
   const deletedIdSet = new Set(timelinesToDelete.map((timeline) => timeline.id))
 
-  requestBulkDeleteConfirmation(() => {
+  modal.request(SINGLE_DELETE_CONFIRM_MESSAGE, () => {
     deletedIdSet.forEach((timelineId) => {
       store.deleteTimeline(timelineId)
       delete timelineEditForms[timelineId]
@@ -178,24 +192,6 @@ function deleteTimelinesByStudyStatus(result: StudyResult) {
       : editingTimelineId.value
     errorMessage.value = ''
   })
-}
-
-function requestBulkDeleteConfirmation(action: () => void) {
-  pendingBulkDeleteAction = action
-  isBulkDeleteConfirmVisible.value = true
-}
-
-function confirmBulkDelete() {
-  const action = pendingBulkDeleteAction
-
-  pendingBulkDeleteAction = null
-  isBulkDeleteConfirmVisible.value = false
-  action?.()
-}
-
-function cancelBulkDelete() {
-  pendingBulkDeleteAction = null
-  isBulkDeleteConfirmVisible.value = false
 }
 
 function showTimelineEditor(timeline: ITimeline) {
@@ -225,13 +221,18 @@ function selectTimelineForBatch(timeline: ITimeline) {
   toggleSelectedTimeline(timeline.id)
 }
 
-function isTimelineRemembered(timeline: ITimeline): boolean {
+function getTimelineStudyStatus(timeline: ITimeline): TimelineStudyStatus {
   const timelineEvents = store.eventsByTimeline(timeline.id)
 
-  return (
-    timelineEvents.length > 0 &&
-    timelineEvents.every((event) => eventStudyResults.value[event.id] === 'remembered')
+  if (timelineEvents.length === 0) {
+    return 'empty'
+  }
+
+  const allRemembered = timelineEvents.every(
+    (event) => eventStudyResults.value[event.id] === 'remembered',
   )
+
+  return allRemembered ? 'remembered' : 'forgotten'
 }
 
 function parseCommaSeparatedText(value: string): string[] {
@@ -247,17 +248,14 @@ function parseCommaSeparatedText(value: string): string[] {
     <header class="page-header">
       <h1>时间线</h1>
       <p>按朝代、专题或考试范围整理历史事件，用于连续背诵。</p>
-      <button
-        class="primary-button"
-        type="button"
-        @click="toggleCreateForm"
-      >
+      <button class="primary-button" type="button" @click="toggleCreateForm">
         {{ isCreateFormVisible ? '收起创建' : '创建时间线' }}
       </button>
     </header>
 
     <div
       v-if="isCreateFormVisible"
+      ref="createModalRef"
       class="timeline-modal"
       role="dialog"
       aria-modal="true"
@@ -278,7 +276,11 @@ function parseCommaSeparatedText(value: string): string[] {
 
           <label>
             名称
-            <input v-model="form.name" type="text" placeholder="例如：中国近代史" />
+            <input
+              v-model="form.name"
+              type="text"
+              placeholder="例如：中国近代史"
+            />
           </label>
 
           <label>
@@ -392,9 +394,9 @@ function parseCommaSeparatedText(value: string): string[] {
           </span>
           <span
             class="study-status"
-            :class="isTimelineRemembered(timeline) ? 'study-status--remembered' : 'study-status--forgotten'"
+            :class="`study-status--${getTimelineStudyStatus(timeline)}`"
           >
-            {{ isTimelineRemembered(timeline) ? '已背过' : '未背过' }}
+            {{ timelineStatusLabels[getTimelineStudyStatus(timeline)] }}
           </span>
         </button>
         <RouterLink
@@ -412,9 +414,9 @@ function parseCommaSeparatedText(value: string): string[] {
           </span>
           <span
             class="study-status"
-            :class="isTimelineRemembered(timeline) ? 'study-status--remembered' : 'study-status--forgotten'"
+            :class="`study-status--${getTimelineStudyStatus(timeline)}`"
           >
-            {{ isTimelineRemembered(timeline) ? '已背过' : '未背过' }}
+            {{ timelineStatusLabels[getTimelineStudyStatus(timeline)] }}
           </span>
         </RouterLink>
 
@@ -461,10 +463,10 @@ function parseCommaSeparatedText(value: string): string[] {
     </section>
 
     <ConfirmActionModal
-      v-if="isBulkDeleteConfirmVisible"
-      :message="BULK_DELETE_CONFIRM_MESSAGE"
-      @confirm="confirmBulkDelete"
-      @cancel="cancelBulkDelete"
+      v-if="modal.isVisible.value"
+      :message="modal.message.value"
+      @confirm="modal.confirm"
+      @cancel="modal.cancel"
     />
   </section>
 </template>
@@ -675,6 +677,11 @@ function parseCommaSeparatedText(value: string): string[] {
 .study-status--forgotten {
   color: #a9471b;
   background: #fff1e8;
+}
+
+.study-status--empty {
+  color: #64708a;
+  background: #eef1f7;
 }
 
 .timeline-card strong {

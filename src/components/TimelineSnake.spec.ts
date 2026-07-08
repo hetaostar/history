@@ -3,12 +3,11 @@ import { describe, expect, it } from 'vitest'
 import TimelineSnake from './TimelineSnake.vue'
 import type { IHistoryEvent } from '@/domain/historyTypes'
 
-function createEvent(id: string, sortValue: number): IHistoryEvent {
+function createEvent(id: string, year: number): IHistoryEvent {
   return {
     id,
     timelineId: 'timeline-1',
-    timeLabel: `${sortValue}年`,
-    sortValue,
+    timeLabel: `${year}年`,
     title: `事件 ${id}`,
     hint: `提示 ${id}`,
     summary: `简介 ${id}`,
@@ -30,7 +29,7 @@ describe('TimelineSnake', () => {
     expect(wrapper.text()).toContain('事件 a')
     expect(wrapper.text()).toContain('简介 b')
 
-    await wrapper.findAll('button')[0].trigger('click')
+    await wrapper.findAll('[data-test^="event-node-"]')[0].trigger('click')
     expect(wrapper.emitted('select')?.[0]).toEqual([events[0]])
   })
 

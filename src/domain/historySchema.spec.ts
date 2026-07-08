@@ -1,15 +1,76 @@
 import { describe, expect, it } from 'vitest'
-import { createEmptyHistoryData, parseHistoryData } from './historySchema'
+import {
+  CURRENT_SCHEMA_VERSION,
+  createEmptyHistoryData,
+  parseHistoryData,
+} from './historySchema'
 
 describe('historySchema', () => {
   it('creates empty data with every collection', () => {
     expect(createEmptyHistoryData()).toEqual({
+      version: CURRENT_SCHEMA_VERSION,
       timelines: [],
       events: [],
       people: [],
       cards: [],
       studyRecords: [],
     })
+  })
+
+  it('includes version: 1 in empty data', () => {
+    expect(createEmptyHistoryData().version).toBe(1)
+    expect(CURRENT_SCHEMA_VERSION).toBe(1)
+  })
+
+  it('accepts v1 data with version field', () => {
+    const data = {
+      ...createEmptyHistoryData(),
+      timelines: [
+        {
+          id: 'timeline-1',
+          name: '中国近代史',
+          description: '',
+          tags: [],
+          createdAt: '2026-06-21T00:00:00.000Z',
+          updatedAt: '2026-06-21T00:00:00.000Z',
+        },
+      ],
+    }
+
+    const parsed = parseHistoryData(data)
+
+    expect(parsed.version).toBe(1)
+    expect(parsed.timelines).toHaveLength(1)
+    expect(parsed.timelines[0].name).toBe('中国近代史')
+  })
+
+  it('migrates legacy data without version field to v1', () => {
+    const legacyData = {
+      timelines: [],
+      events: [],
+      people: [],
+      cards: [],
+      studyRecords: [],
+    }
+
+    const parsed = parseHistoryData(legacyData)
+
+    expect(parsed.version).toBe(1)
+  })
+
+  it('rejects data with future schema version', () => {
+    const futureData = {
+      version: 999,
+      timelines: [],
+      events: [],
+      people: [],
+      cards: [],
+      studyRecords: [],
+    }
+
+    expect(() => parseHistoryData(futureData)).toThrow(
+      '导入文件版本过高，请升级应用',
+    )
   })
 
   it('accepts valid exported data', () => {
@@ -44,7 +105,6 @@ describe('historySchema', () => {
             id: 'event-1',
             timelineId: 'timeline-1',
             timeLabel: '前221年',
-            sortValue: -221,
             title: '秦统一六国',
             hint: '秦',
             summary: '秦完成统一。',

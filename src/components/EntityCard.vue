@@ -19,8 +19,7 @@ defineProps<{
   padding: 18px;
   color: var(--ink);
   background:
-    linear-gradient(90deg, rgb(184 62 44 / 12%), transparent 4px),
-    var(--paper);
+    linear-gradient(90deg, rgb(184 62 44 / 12%), transparent 4px), var(--paper);
   border: 1px solid rgb(74 50 35 / 14%);
   border-radius: 16px;
   box-shadow: 0 12px 30px rgb(36 27 20 / 10%);

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import ConfirmActionModal from '@/components/ConfirmActionModal.vue'
+import { useConfirmModal } from '@/composables/useConfirmModal'
+import { useModalBehavior } from '@/composables/useModalBehavior'
 import EntityCard from '@/components/EntityCard.vue'
 import StudyRevealCard from '@/components/StudyRevealCard.vue'
 import type { IStudyCard, StudyResult } from '@/domain/historyTypes'
@@ -22,7 +24,7 @@ const CUSTOM_DIRECTION_LABELS: Record<CustomRangeDirection, string> = {
   keyword: '关键词',
 }
 
-const BULK_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
+const SINGLE_DELETE_CONFIRM_MESSAGE = '是否执行该操作？该操作执行后无法恢复。'
 
 const store = useHistoryStore()
 const selectedCardId = ref('')
@@ -33,7 +35,6 @@ const isCreateFormVisible = ref(false)
 const isDrawFormVisible = ref(false)
 const isBatchDeleteVisible = ref(false)
 const isStudyModeEnabled = ref(false)
-const isBulkDeleteConfirmVisible = ref(false)
 const drawCount = ref(1)
 const drawnCardIds = ref<string[]>([])
 const selectedCardIds = ref<string[]>([])
@@ -50,7 +51,8 @@ const confirmedCustomRange = reactive<{
   direction: '',
   value: '',
 })
-let pendingBulkDeleteAction: (() => void) | null = null
+
+const modal = useConfirmModal()
 
 interface ICardForm {
   front: string
@@ -85,13 +87,56 @@ const studyingCard = computed(() => {
   return cards.value.find((card) => card.id === studyingCardId.value) ?? null
 })
 
+const { containerRef: createModalRef } = useModalBehavior(
+  isCreateFormVisible,
+  () => {
+    isCreateFormVisible.value = false
+  },
+)
+
+const { containerRef: drawModalRef } = useModalBehavior(
+  isDrawFormVisible,
+  () => {
+    isDrawFormVisible.value = false
+  },
+)
+
+const isCardDetailVisible = computed(() => selectedCard.value !== null)
+const { containerRef: cardDetailModalRef } = useModalBehavior(
+  isCardDetailVisible,
+  () => {
+    selectedCardId.value = ''
+  },
+)
+
+const isCardStudyVisible = computed(() => studyingCard.value !== null)
+const { containerRef: cardStudyModalRef } = useModalBehavior(
+  isCardStudyVisible,
+  () => {
+    studyingCardId.value = ''
+  },
+)
+
+const isCardEditorVisible = computed(() => editingCard.value !== null)
+const { containerRef: cardEditorModalRef } = useModalBehavior(
+  isCardEditorVisible,
+  () => {
+    if (editingCardId.value) {
+      delete cardEditForms[editingCardId.value]
+    }
+    editingCardId.value = ''
+  },
+)
+
 const studyingCardRelatedPeople = computed(() => {
   if (!studyingCard.value) {
     return []
   }
 
   return studyingCard.value.personIds.map((personId) => {
-    return store.people.find((person) => person.id === personId)?.name ?? personId
+    return (
+      store.people.find((person) => person.id === personId)?.name ?? personId
+    )
   })
 })
 
@@ -105,16 +150,17 @@ const studyingCardRelatedEvents = computed(() => {
   })
 })
 
-const cardStudyResults = computed(() => {
-  const results: Record<string, StudyResult> = {}
-
-  store.studyRecords.forEach((record) => {
+const latestResultByTarget = computed(() => {
+  const map = new Map<string, StudyResult>()
+  const sorted = [...store.studyRecords].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  )
+  for (const record of sorted) {
     if (record.targetType === 'card') {
-      results[record.targetId] = record.result
+      map.set(record.targetId, record.result)
     }
-  })
-
-  return results
+  }
+  return map
 })
 
 const drawnCards = computed(() => {
@@ -322,20 +368,20 @@ function updateCard(card: IStudyCard) {
 }
 
 function deleteCard(card: IStudyCard) {
-  const confirmed = window.confirm('确认删除这张背诵卡片吗？')
-
-  if (!confirmed) {
-    return
-  }
-
-  store.deleteCard(card.id)
-  delete cardEditForms[card.id]
-  selectedCardId.value = ''
-  editingCardId.value = ''
-  studyingCardId.value = ''
-  selectedCardIds.value = selectedCardIds.value.filter((cardId) => cardId !== card.id)
-  drawnCardIds.value = drawnCardIds.value.filter((cardId) => cardId !== card.id)
-  errorMessage.value = ''
+  modal.request('确认删除这张背诵卡片吗？', () => {
+    store.deleteCard(card.id)
+    delete cardEditForms[card.id]
+    selectedCardId.value = ''
+    editingCardId.value = ''
+    studyingCardId.value = ''
+    selectedCardIds.value = selectedCardIds.value.filter(
+      (cardId) => cardId !== card.id,
+    )
+    drawnCardIds.value = drawnCardIds.value.filter(
+      (cardId) => cardId !== card.id,
+    )
+    errorMessage.value = ''
+  })
 }
 
 function recordStudy(result: StudyResult) {
@@ -355,24 +401,32 @@ function deleteSelectedCards() {
 
   const selectedIdSet = new Set(selectedCardIds.value)
 
-  requestBulkDeleteConfirmation(() => {
+  modal.request(SINGLE_DELETE_CONFIRM_MESSAGE, () => {
     selectedIdSet.forEach((cardId) => {
       store.deleteCard(cardId)
       delete cardEditForms[cardId]
     })
     selectedCardIds.value = []
     isBatchDeleteVisible.value = false
-    drawnCardIds.value = drawnCardIds.value.filter((cardId) => !selectedIdSet.has(cardId))
-    selectedCardId.value = selectedIdSet.has(selectedCardId.value) ? '' : selectedCardId.value
-    editingCardId.value = selectedIdSet.has(editingCardId.value) ? '' : editingCardId.value
-    studyingCardId.value = selectedIdSet.has(studyingCardId.value) ? '' : studyingCardId.value
+    drawnCardIds.value = drawnCardIds.value.filter(
+      (cardId) => !selectedIdSet.has(cardId),
+    )
+    selectedCardId.value = selectedIdSet.has(selectedCardId.value)
+      ? ''
+      : selectedCardId.value
+    editingCardId.value = selectedIdSet.has(editingCardId.value)
+      ? ''
+      : editingCardId.value
+    studyingCardId.value = selectedIdSet.has(studyingCardId.value)
+      ? ''
+      : studyingCardId.value
     errorMessage.value = ''
   })
 }
 
 function deleteCardsByStudyResult(result: StudyResult) {
   const cardsToDelete = cards.value.filter((card) => {
-    const latestResult = getLatestCardStudyResult(card.id)
+    const latestResult = latestResultByTarget.value.get(card.id)
 
     return result === 'remembered'
       ? latestResult === 'remembered'
@@ -387,7 +441,7 @@ function deleteCardsByStudyResult(result: StudyResult) {
 
   const deletedIdSet = new Set(cardsToDelete.map((card) => card.id))
 
-  requestBulkDeleteConfirmation(() => {
+  modal.request(SINGLE_DELETE_CONFIRM_MESSAGE, () => {
     deletedIdSet.forEach((cardId) => {
       store.deleteCard(cardId)
       delete cardEditForms[cardId]
@@ -396,30 +450,20 @@ function deleteCardsByStudyResult(result: StudyResult) {
       (cardId) => !deletedIdSet.has(cardId),
     )
     isBatchDeleteVisible.value = false
-    drawnCardIds.value = drawnCardIds.value.filter((cardId) => !deletedIdSet.has(cardId))
-    selectedCardId.value = deletedIdSet.has(selectedCardId.value) ? '' : selectedCardId.value
-    editingCardId.value = deletedIdSet.has(editingCardId.value) ? '' : editingCardId.value
-    studyingCardId.value = deletedIdSet.has(studyingCardId.value) ? '' : studyingCardId.value
+    drawnCardIds.value = drawnCardIds.value.filter(
+      (cardId) => !deletedIdSet.has(cardId),
+    )
+    selectedCardId.value = deletedIdSet.has(selectedCardId.value)
+      ? ''
+      : selectedCardId.value
+    editingCardId.value = deletedIdSet.has(editingCardId.value)
+      ? ''
+      : editingCardId.value
+    studyingCardId.value = deletedIdSet.has(studyingCardId.value)
+      ? ''
+      : studyingCardId.value
     errorMessage.value = ''
   })
-}
-
-function requestBulkDeleteConfirmation(action: () => void) {
-  pendingBulkDeleteAction = action
-  isBulkDeleteConfirmVisible.value = true
-}
-
-function confirmBulkDelete() {
-  const action = pendingBulkDeleteAction
-
-  pendingBulkDeleteAction = null
-  isBulkDeleteConfirmVisible.value = false
-  action?.()
-}
-
-function cancelBulkDelete() {
-  pendingBulkDeleteAction = null
-  isBulkDeleteConfirmVisible.value = false
 }
 
 function getStudyStatusLabel(result: StudyResult | undefined): string {
@@ -434,20 +478,17 @@ function getCustomDirectionLabel(direction: CustomRangeDirection | ''): string {
   return direction ? CUSTOM_DIRECTION_LABELS[direction] : '选择自定义方向'
 }
 
-function getLatestCardStudyResult(cardId: string): StudyResult | undefined {
-  return [...store.studyRecords]
-    .reverse()
-    .find((record) => record.targetType === 'card' && record.targetId === cardId)
-    ?.result
-}
-
 function getDrawCandidateCards(): IStudyCard[] {
   if (drawRange.value === 'remembered') {
-    return cards.value.filter((card) => getLatestCardStudyResult(card.id) === 'remembered')
+    return cards.value.filter(
+      (card) => latestResultByTarget.value.get(card.id) === 'remembered',
+    )
   }
 
   if (drawRange.value === 'forgotten') {
-    return cards.value.filter((card) => getLatestCardStudyResult(card.id) !== 'remembered')
+    return cards.value.filter(
+      (card) => latestResultByTarget.value.get(card.id) !== 'remembered',
+    )
   }
 
   if (drawRange.value === 'custom') {
@@ -518,11 +559,7 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
     <header class="page-header">
       <h1>卡片背诵</h1>
       <p>创建独立背诵卡片，也可以选择关联人物或事件。</p>
-      <button
-        class="primary-button"
-        type="button"
-        @click="toggleCreateForm"
-      >
+      <button class="primary-button" type="button" @click="toggleCreateForm">
         {{ isCreateFormVisible ? '收起新建' : '新建卡片' }}
       </button>
       <button
@@ -537,6 +574,7 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
 
     <div
       v-if="isCreateFormVisible"
+      ref="createModalRef"
       class="card-modal"
       role="dialog"
       aria-modal="true"
@@ -573,14 +611,14 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
             />
           </label>
 
-        <label>
-          提示
-          <input
-            v-model="form.hint"
-            type="text"
-            placeholder="用于背诵时提示自己"
-          />
-        </label>
+          <label>
+            提示
+            <input
+              v-model="form.hint"
+              type="text"
+              placeholder="用于背诵时提示自己"
+            />
+          </label>
 
           <div class="form-grid">
             <label>
@@ -619,6 +657,7 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
 
     <div
       v-if="isDrawFormVisible"
+      ref="drawModalRef"
       class="card-modal"
       role="dialog"
       aria-modal="true"
@@ -806,9 +845,9 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
             />
             <span
               class="study-status"
-              :class="`study-status--${cardStudyResults[card.id] ?? 'forgotten'}`"
+              :class="`study-status--${latestResultByTarget.get(card.id) ?? 'forgotten'}`"
             >
-              {{ getStudyStatusLabel(cardStudyResults[card.id]) }}
+              {{ getStudyStatusLabel(latestResultByTarget.get(card.id)) }}
             </span>
           </article>
         </section>
@@ -920,15 +959,16 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
         />
         <span
           class="study-status"
-          :class="`study-status--${cardStudyResults[card.id] ?? 'forgotten'}`"
+          :class="`study-status--${latestResultByTarget.get(card.id) ?? 'forgotten'}`"
         >
-          {{ getStudyStatusLabel(cardStudyResults[card.id]) }}
+          {{ getStudyStatusLabel(latestResultByTarget.get(card.id)) }}
         </span>
       </article>
     </section>
 
     <div
       v-if="selectedCard"
+      ref="cardDetailModalRef"
       class="card-modal"
       role="dialog"
       aria-modal="true"
@@ -974,15 +1014,14 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
             <p v-if="selectedCard.eventIds.length" class="relation-ids">
               关联事件 ID：{{ selectedCard.eventIds.join('，') }}
             </p>
-
           </article>
-
         </section>
       </section>
     </div>
 
     <div
       v-if="studyingCard"
+      ref="cardStudyModalRef"
       class="card-modal"
       role="dialog"
       aria-modal="true"
@@ -1011,6 +1050,7 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
 
     <div
       v-if="editingCard"
+      ref="cardEditorModalRef"
       class="card-modal"
       role="dialog"
       aria-modal="true"
@@ -1086,10 +1126,10 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
     </div>
 
     <ConfirmActionModal
-      v-if="isBulkDeleteConfirmVisible"
-      :message="BULK_DELETE_CONFIRM_MESSAGE"
-      @confirm="confirmBulkDelete"
-      @cancel="cancelBulkDelete"
+      v-if="modal.isVisible.value"
+      :message="modal.message.value"
+      @confirm="modal.confirm"
+      @cancel="modal.cancel"
     />
   </section>
 </template>

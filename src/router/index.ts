@@ -1,23 +1,39 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import FlashcardPage from '@/pages/FlashcardPage.vue'
-import HomePage from '@/pages/HomePage.vue'
-import ImportExportPage from '@/pages/ImportExportPage.vue'
-import PersonDetailPage from '@/pages/PersonDetailPage.vue'
-import PersonListPage from '@/pages/PersonListPage.vue'
-import SearchPage from '@/pages/SearchPage.vue'
-import TimelineDetailPage from '@/pages/TimelineDetailPage.vue'
-import TimelineListPage from '@/pages/TimelineListPage.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', component: HomePage },
-    { path: '/timelines', component: TimelineListPage },
-    { path: '/timelines/:timelineId', component: TimelineDetailPage },
-    { path: '/people', component: PersonListPage },
-    { path: '/people/:personId', component: PersonDetailPage },
-    { path: '/cards', component: FlashcardPage },
-    { path: '/search', component: SearchPage },
-    { path: '/data', component: ImportExportPage },
+    {
+      path: '/',
+      component: () => import('@/pages/HomePage.vue'),
+    },
+    {
+      path: '/timelines',
+      component: () => import('@/pages/TimelineListPage.vue'),
+    },
+    {
+      path: '/timelines/:timelineId',
+      component: () => import('@/pages/TimelineDetailPage.vue'),
+    },
+    {
+      path: '/people',
+      component: () => import('@/pages/PersonListPage.vue'),
+    },
+    {
+      path: '/people/:personId',
+      component: () => import('@/pages/PersonDetailPage.vue'),
+    },
+    {
+      path: '/cards',
+      component: () => import('@/pages/FlashcardPage.vue'),
+    },
+    {
+      path: '/search',
+      component: () => import('@/pages/SearchPage.vue'),
+    },
+    {
+      path: '/data',
+      component: () => import('@/pages/ImportExportPage.vue'),
+    },
   ],
 })

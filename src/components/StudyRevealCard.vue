@@ -23,8 +23,12 @@ const revealed = ref(false)
       v-if="relatedPeople?.length || relatedEvents?.length"
       class="relation-summary"
     >
-      <p v-if="relatedPeople?.length">关联人物：{{ relatedPeople.join('、') }}</p>
-      <p v-if="relatedEvents?.length">关联事件：{{ relatedEvents.join('、') }}</p>
+      <p v-if="relatedPeople?.length">
+        关联人物：{{ relatedPeople.join('、') }}
+      </p>
+      <p v-if="relatedEvents?.length">
+        关联事件：{{ relatedEvents.join('、') }}
+      </p>
     </div>
 
     <div
@@ -66,12 +70,7 @@ const revealed = ref(false)
       >
         查看反面
       </button>
-      <button
-        v-else
-        data-test="hide"
-        type="button"
-        @click="revealed = false"
-      >
+      <button v-else data-test="hide" type="button" @click="revealed = false">
         回到正面
       </button>
       <button

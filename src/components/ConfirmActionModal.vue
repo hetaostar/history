@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useModalBehavior } from '@/composables/useModalBehavior'
+
 defineProps<{
   message: string
 }>()
@@ -7,10 +10,15 @@ const emit = defineEmits<{
   confirm: []
   cancel: []
 }>()
+
+// 组件挂载即表示可见（外部用 v-if 控制），所以始终传 true 给 useModalBehavior。
+const isActive = ref(true)
+const { containerRef } = useModalBehavior(isActive, () => emit('cancel'))
 </script>
 
 <template>
   <div
+    ref="containerRef"
     class="confirm-overlay"
     role="dialog"
     aria-modal="true"

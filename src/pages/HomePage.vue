@@ -40,7 +40,11 @@ const featureEntries = computed(() => [
 ])
 
 const totalItems = computed(
-  () => store.people.length + store.timelines.length + store.events.length + store.cards.length,
+  () =>
+    store.people.length +
+    store.timelines.length +
+    store.events.length +
+    store.cards.length,
 )
 
 const latestEvents = computed(() =>
@@ -169,9 +173,10 @@ const latestPeople = computed(() =>
   position: absolute;
   inset: 22px;
   pointer-events: none;
-  content: "";
+  content: '';
   background:
-    linear-gradient(90deg, rgb(43 54 42 / 14%) 1px, transparent 1px) 0 0 / 64px 100%,
+    linear-gradient(90deg, rgb(43 54 42 / 14%) 1px, transparent 1px) 0 0 / 64px
+      100%,
     linear-gradient(rgb(43 54 42 / 9%) 1px, transparent 1px) 0 0 / 100% 42px;
   border: 1px solid rgb(43 54 42 / 14%);
   border-radius: 26px;
@@ -316,7 +321,7 @@ const latestPeople = computed(() =>
   bottom: -52px;
   width: 126px;
   height: 126px;
-  content: "";
+  content: '';
   background: var(--aged-gold);
   border-radius: 999px;
   opacity: 0.26;
@@ -433,8 +438,7 @@ const latestPeople = computed(() =>
   color: inherit;
   text-decoration: none;
   background:
-    linear-gradient(90deg, rgb(184 62 44 / 14%), transparent 3px),
-    var(--paper);
+    linear-gradient(90deg, rgb(184 62 44 / 14%), transparent 3px), var(--paper);
   border: 1px solid rgb(74 50 35 / 12%);
   border-radius: 18px;
 }

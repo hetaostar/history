@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useDebouncedRef } from '@/composables/useDebouncedRef'
 import { useHistoryStore } from '@/stores/historyStore'
 
 const store = useHistoryStore()
-const query = ref('')
+const { value: query, debounced: debouncedQuery } = useDebouncedRef('', 200)
 
-const results = computed(() => store.search(query.value))
+const results = computed(() => store.search(debouncedQuery.value))
 const hasQuery = computed(() => query.value.trim().length > 0)
 const hasResults = computed(() => {
   return (
