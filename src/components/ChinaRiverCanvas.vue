@@ -31,10 +31,14 @@ const INITIAL_CENTER_YEAR = 900
 const INITIAL_ZOOM = 0.12
 const MIN_ZOOM = 0.05
 const MAX_ZOOM = 50
-const RIVER_HALF_HEIGHT = 300
 const EVENT_LANE_HEIGHT = 48
 const KEYBOARD_PAN_DISTANCE = 80
 const KEYBOARD_ZOOM_FACTOR = 1.5
+const TIMELINE_BOTTOM_OFFSET = 42
+const TIMELINE_DIVIDER_GAP = 44
+const RIVER_BOTTOM_GAP = 18
+const EVENT_BASELINE_GAP = 18
+const EVENT_AREA_TOP_PADDING = 24
 
 const props = defineProps<{
   width: number
@@ -67,6 +71,16 @@ function getWorldWidth(): number {
   return props.width * 8
 }
 
+function clampHorizontalOffset(offset: number, zoom: number): number {
+  const scaledWorldWidth = getWorldWidth() * zoom
+
+  if (scaledWorldWidth <= props.width) {
+    return (props.width - scaledWorldWidth) / 2
+  }
+
+  return Math.max(props.width - scaledWorldWidth, Math.min(0, offset))
+}
+
 function yearToWorldX(year: number): number {
   return (
     ((year - DATA_START_YEAR) / (DATA_END_YEAR - DATA_START_YEAR)) *
@@ -74,14 +88,10 @@ function yearToWorldX(year: number): number {
   )
 }
 
-function getCenteredVerticalOffset(zoom: number): number {
-  return props.height / 2 - (props.height / 2) * zoom
-}
-
 function normalizeViewport(nextViewport: IViewport): IViewport {
   return {
-    x: nextViewport.x,
-    y: getCenteredVerticalOffset(nextViewport.k),
+    x: clampHorizontalOffset(nextViewport.x, nextViewport.k),
+    y: 0,
     k: nextViewport.k,
   }
 }
@@ -92,11 +102,11 @@ function createInitialViewport(): IViewport {
       (DATA_END_YEAR - DATA_START_YEAR)) *
     (props.width * 8)
 
-  return {
+  return normalizeViewport({
     x: props.width / 2 - centerWorldX * INITIAL_ZOOM,
-    y: getCenteredVerticalOffset(INITIAL_ZOOM),
+    y: 0,
     k: INITIAL_ZOOM,
-  }
+  })
 }
 
 function screenXToYear(screenX: number): number {
@@ -216,6 +226,38 @@ watch(
 
 const riverSampleStep = computed(() => getRiverSampleStep(viewport.value.k))
 
+const timelineAxisY = computed(() =>
+  Math.max(96, props.height - TIMELINE_BOTTOM_OFFSET),
+)
+
+const timelineDividerY = computed(
+  () => timelineAxisY.value - TIMELINE_DIVIDER_GAP,
+)
+
+const riverBottomY = computed(
+  () => timelineDividerY.value - RIVER_BOTTOM_GAP,
+)
+
+const riverTopY = computed(() =>
+  Math.max(
+    props.height * 0.5,
+    riverBottomY.value - Math.min(220, props.height * 0.3),
+  ),
+)
+
+const eventBaselineY = computed(() => riverTopY.value - EVENT_BASELINE_GAP)
+
+const maxEventLanes = computed(() =>
+  Math.max(
+    1,
+    Math.floor(
+      (eventBaselineY.value - EVENT_AREA_TOP_PADDING) / EVENT_LANE_HEIGHT,
+    ),
+  ),
+)
+
+const prcTrackY = computed(() => riverTopY.value + 22)
+
 const riverPoints = computed(() =>
   createRiverDataPoints(props.dynasties, {
     startYear: DATA_START_YEAR,
@@ -240,10 +282,7 @@ const riverStackLayout = computed(() => {
   const yScale = d3
     .scaleLinear()
     .domain([-paddedHalfDomain, paddedHalfDomain])
-    .range([
-      props.height / 2 + RIVER_HALF_HEIGHT,
-      props.height / 2 - RIVER_HALF_HEIGHT,
-    ])
+    .range([riverBottomY.value, riverTopY.value])
 
   return { series, yScale }
 })
@@ -300,9 +339,7 @@ const dynastyLabels = computed(() =>
       return {
         dynasty,
         x: yearToScreenX(labelYear),
-        y:
-          getCenteredVerticalOffset(viewport.value.k) +
-          worldY * viewport.value.k,
+        y: worldY,
       }
     })
     .filter(({ x }) => x > -120 && x < props.width + 120),
@@ -341,10 +378,11 @@ const eventNodes = computed(() => {
     pixelsPerYear,
     originYear: DATA_START_YEAR,
     maxVisibleImportance: maxVisibleImportance.value,
+    maxLane: maxEventLanes.value,
   }).map((node) => ({
     ...node,
     screenX: viewport.value.x + node.x,
-    screenY: props.height / 2 + node.lane * EVENT_LANE_HEIGHT,
+    screenY: eventBaselineY.value - node.lane * EVENT_LANE_HEIGHT,
     color: getEventTypeColor(node.event.type),
     yearLabel: formatHistoricalYear(node.event.year),
   }))
@@ -361,8 +399,7 @@ const hoverYearLabel = computed(() =>
 )
 
 const worldTransform = computed(
-  () =>
-    `translate(${viewport.value.x} ${getCenteredVerticalOffset(viewport.value.k)}) scale(${viewport.value.k})`,
+  () => `translate(${viewport.value.x} 0) scale(${viewport.value.k} 1)`,
 )
 
 const prcTrackStart = computed(() => yearToScreenX(1949))
@@ -377,6 +414,10 @@ function initializeZoom(): void {
     .extent([
       [0, 0],
       [props.width, props.height],
+    ])
+    .translateExtent([
+      [0, 0],
+      [getWorldWidth(), props.height],
     ])
     .scaleExtent([MIN_ZOOM, MAX_ZOOM])
     .filter((event) => {
@@ -434,6 +475,10 @@ watch(
     zoomBehavior.value.extent([
       [0, 0],
       [props.width, props.height],
+    ])
+    zoomBehavior.value.translateExtent([
+      [0, 0],
+      [getWorldWidth(), props.height],
     ])
     d3.select(svg.value).call(
       zoomBehavior.value.transform,
@@ -516,18 +561,26 @@ onUnmounted(() => {
 
       <g class="timeline-axis" aria-hidden="true">
         <line
+          data-test="timeline-divider"
+          class="timeline-divider"
+          x1="0"
+          :x2="props.width"
+          :y1="timelineDividerY"
+          :y2="timelineDividerY"
+        />
+        <line
           v-for="tick in minorTicks"
           :key="`minor-${tick.year}`"
           class="minor-tick"
           :x1="tick.x"
           :x2="tick.x"
-          :y1="props.height / 2 - 7"
-          :y2="props.height / 2 + 7"
+          :y1="timelineAxisY - 7"
+          :y2="timelineAxisY + 7"
         />
         <g
           v-for="tick in majorTicks"
           :key="`major-${tick.year}`"
-          :transform="`translate(${tick.x} ${props.height / 2})`"
+          :transform="`translate(${tick.x} ${timelineAxisY})`"
         >
           <line class="major-tick" y1="-13" y2="13" />
           <text class="tick-label" y="31" text-anchor="middle">
@@ -557,9 +610,17 @@ onUnmounted(() => {
             prcTrackEnd >= 0 && prcTrackStart <= props.width,
         }"
       >
-        <line :x1="prcTrackStart" :x2="prcTrackEnd" y1="58" y2="58" />
-        <circle :cx="prcTrackStart" cy="58" r="5" />
-        <text :x="Math.max(84, prcTrackStart + 12)" y="42">
+        <line
+          :x1="prcTrackStart"
+          :x2="prcTrackEnd"
+          :y1="prcTrackY"
+          :y2="prcTrackY"
+        />
+        <circle :cx="prcTrackStart" :cy="prcTrackY" r="5" />
+        <text
+          :x="Math.max(84, prcTrackStart + 12)"
+          :y="prcTrackY + 25"
+        >
           1949 · 中华人民共和国
         </text>
       </g>
@@ -582,7 +643,7 @@ onUnmounted(() => {
             <line
               class="event-connector"
               x1="0"
-              :y1="-node.lane * EVENT_LANE_HEIGHT"
+              :y1="node.lane * EVENT_LANE_HEIGHT"
               x2="0"
               y2="0"
               :stroke="node.color"
@@ -683,6 +744,11 @@ onUnmounted(() => {
 .minor-tick,
 .major-tick {
   stroke: rgb(226 232 240 / 30%);
+}
+
+.timeline-divider {
+  stroke: rgb(246 217 141 / 24%);
+  stroke-width: 1;
 }
 
 .major-tick {

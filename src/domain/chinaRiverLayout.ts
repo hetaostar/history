@@ -261,6 +261,7 @@ export interface IRiverEventLayoutOptions {
   readonly originYear?: number
   readonly maxVisibleImportance?: HistoricalEventImportance
   readonly overlapTolerance?: number
+  readonly maxLane?: number
 }
 
 export interface IRiverEventLayoutNode {
@@ -277,11 +278,11 @@ interface IOccupiedRange {
   readonly endX: number
 }
 
-function createLaneCandidates(primaryLane: number, eventCount: number) {
-  const candidates = [primaryLane, -primaryLane]
+function createLaneCandidates(primaryLane: number, maxLane: number) {
+  const candidates = primaryLane <= maxLane ? [primaryLane] : []
 
-  for (let lane = 1; lane <= eventCount + 1; lane += 1) {
-    candidates.push(lane, -lane)
+  for (let lane = 1; lane <= maxLane; lane += 1) {
+    candidates.push(lane)
   }
 
   return [...new Set(candidates)]
@@ -304,6 +305,9 @@ export function layoutRiverEvents(
       )
     }
   }
+  if (options.maxLane !== undefined) {
+    assertPositiveSafeInteger(options.maxLane, 'maxLane')
+  }
   events.forEach((event) => {
     assertSafeInteger(event.year, `event "${event.id}" year`)
   })
@@ -324,6 +328,7 @@ export function layoutRiverEvents(
   const originYear = options.originYear ?? 0
   const overlapTolerance =
     options.overlapTolerance ?? (options.zoom <= 0.05 ? 30 : 5)
+  const maxLane = options.maxLane ?? sortedEvents.length + 1
   const horizontalPadding = options.zoom <= 0.05 ? 10 : 20
   const labelScale = Math.min(1.2, Math.max(0.8, options.zoom))
 
@@ -340,9 +345,9 @@ export function layoutRiverEvents(
     assertFinite(startX, `event "${event.id}" startX`)
     assertFinite(endX, `event "${event.id}" endX`)
     const band = Math.min(5, Math.max(1, event.importance))
-    const primaryLane = (event.year % 2 === 0 ? 1 : -1) * band
+    const primaryLane = band
 
-    for (const lane of createLaneCandidates(primaryLane, sortedEvents.length)) {
+    for (const lane of createLaneCandidates(primaryLane, maxLane)) {
       const occupiedRanges = occupiedLanes.get(lane) ?? []
       const overlaps = occupiedRanges.some(
         (range) =>

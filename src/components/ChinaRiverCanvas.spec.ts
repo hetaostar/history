@@ -52,7 +52,7 @@ const events: IHistoricalEvent[] = [
   },
   {
     id: 'center-detail',
-    year: 900,
+    year: -237,
     title: '中心细节事件',
     type: 'culture',
     importance: 2,
@@ -114,7 +114,7 @@ function getTranslateX(transform: string | undefined): number {
 
 function getScale(transform: string | undefined): number {
   if (!transform) throw new Error('缺少 transform 属性')
-  const match = transform.match(/scale\(([^)]+)\)/)
+  const match = transform.match(/scale\(([^ )]+)/)
   if (!match) throw new Error(`无法解析 transform: ${transform}`)
   return Number(match[1])
 }
@@ -210,8 +210,8 @@ describe('ChinaRiverCanvas', () => {
       .flatMap((path) => getPathYCoordinates(path.attributes('d') ?? ''))
 
     expect(allPathYCoordinates.length).toBeGreaterThan(0)
-    expect(Math.min(...allPathYCoordinates)).toBeGreaterThanOrEqual(60)
-    expect(Math.max(...allPathYCoordinates)).toBeLessThanOrEqual(660)
+    expect(Math.min(...allPathYCoordinates)).toBeGreaterThanOrEqual(400)
+    expect(Math.max(...allPathYCoordinates)).toBeLessThanOrEqual(616)
     wrapper.unmount()
   })
 
@@ -237,11 +237,58 @@ describe('ChinaRiverCanvas', () => {
         .attributes('transform'),
     )
 
-    expect(lowerLayerLabelY).toBeGreaterThan(360)
-    expect(lowerLayerLabelY).toBeLessThan(400)
-    expect(upperLayerLabelY).toBeGreaterThan(320)
-    expect(upperLayerLabelY).toBeLessThan(360)
-    expect(lowerLayerLabelY).not.toBe(upperLayerLabelY)
+    expect(lowerLayerLabelY).toBeGreaterThan(400)
+    expect(lowerLayerLabelY).toBeLessThan(616)
+    expect(upperLayerLabelY).toBeGreaterThan(400)
+    expect(upperLayerLabelY).toBeLessThan(616)
+    expect(lowerLayerLabelY).toBeGreaterThan(upperLayerLabelY)
+    wrapper.unmount()
+  })
+
+  it('按事件、朝代河流、独立年份轴从上到下分区', () => {
+    const wrapper = mountCanvas()
+    const eventY = getTranslateY(
+      wrapper
+        .get('[data-test="river-event-founding"]')
+        .attributes('transform'),
+    )
+    const dynastyLabelYs = wrapper
+      .findAll('.dynasty-labels > g')
+      .map((label) => getTranslateY(label.attributes('transform')))
+    const timelineY = getTranslateY(
+      wrapper.get('.timeline-axis > g').attributes('transform'),
+    )
+
+    expect(dynastyLabelYs.length).toBeGreaterThan(0)
+    expect(eventY).toBeLessThan(Math.min(...dynastyLabelYs))
+    expect(timelineY).toBeGreaterThan(Math.max(...dynastyLabelYs))
+    expect(wrapper.find('[data-test="timeline-divider"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('密集事件不超出画布顶部的事件区容量', () => {
+    const crowdedEvents = Array.from({ length: 10 }, (_, index) => ({
+      id: `crowded-${index}`,
+      year: -237,
+      title: `同年密集事件${index}`,
+      type: 'politics' as const,
+      importance: 1 as const,
+    }))
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties,
+        events: crowdedEvents,
+      },
+    })
+    const eventYs = wrapper
+      .findAll('.river-event')
+      .map((event) => getTranslateY(event.attributes('transform')))
+
+    expect(eventYs.length).toBeGreaterThan(0)
+    expect(eventYs.length).toBeLessThan(crowdedEvents.length)
+    expect(Math.min(...eventYs)).toBeGreaterThanOrEqual(24)
     wrapper.unmount()
   })
 
@@ -330,6 +377,48 @@ describe('ChinaRiverCanvas', () => {
     wrapper.unmount()
   })
 
+  it('滚轮缩放后仍将时间轴保持在横向边界内', async () => {
+    const wrapper = mountCanvas()
+    flushAnimationFrames()
+    const zoomSurface = wrapper.get('[data-test="zoom-surface"]').element
+
+    zoomSurface.dispatchEvent(
+      new WheelEvent('wheel', {
+        deltaY: -2000,
+        clientX: 0,
+        clientY: 360,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+
+    let worldTransform = wrapper.get('.river-world').attributes('transform')
+    let zoom = getScale(worldTransform)
+    let offset = getTranslateX(worldTransform)
+    expect(offset).toBeGreaterThanOrEqual(1200 - 9600 * zoom)
+    expect(offset).toBeLessThanOrEqual(0)
+
+    zoomSurface.dispatchEvent(
+      new WheelEvent('wheel', {
+        deltaY: 10_000,
+        clientX: 1200,
+        clientY: 360,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+
+    worldTransform = wrapper.get('.river-world').attributes('transform')
+    zoom = getScale(worldTransform)
+    offset = getTranslateX(worldTransform)
+    expect(offset).toBeCloseTo((1200 - 9600 * zoom) / 2)
+    wrapper.unmount()
+  })
+
   it('使用可访问交互语义并支持键盘平移与缩放', async () => {
     const wrapper = mountCanvas()
     flushAnimationFrames()
@@ -339,7 +428,11 @@ describe('ChinaRiverCanvas', () => {
     expect(svg.attributes('role')).toBe('group')
     expect(svg.attributes('tabindex')).toBe('0')
 
+    await svg.trigger('keydown', { key: '+' })
+    flushAnimationFrames()
+    await nextTick()
     const initialTransform = wrapper.get('.river-world').attributes('transform')
+
     await svg.trigger('keydown', { key: 'ArrowRight' })
     flushAnimationFrames()
     await nextTick()
@@ -359,10 +452,126 @@ describe('ChinaRiverCanvas', () => {
     wrapper.unmount()
   })
 
-  it('纵向拖动与偏心缩放后河流、时间轴和事件仍保持垂直对齐', async () => {
+  it('将键盘平移限制在完整时间轴的左右边界内', async () => {
+    const wrapper = mountCanvas()
+    flushAnimationFrames()
+    await nextTick()
+    const svg = wrapper.get('svg')
+
+    expect(
+      getTranslateX(wrapper.get('.river-world').attributes('transform')),
+    ).toBeCloseTo(24)
+
+    await svg.trigger('keydown', { key: '+' })
+    flushAnimationFrames()
+    await nextTick()
+
+    for (let index = 0; index < 20; index += 1) {
+      await svg.trigger('keydown', { key: 'ArrowLeft' })
+      flushAnimationFrames()
+      await nextTick()
+    }
+    expect(
+      getTranslateX(wrapper.get('.river-world').attributes('transform')),
+    ).toBe(0)
+
+    for (let index = 0; index < 20; index += 1) {
+      await svg.trigger('keydown', { key: 'ArrowRight' })
+      flushAnimationFrames()
+      await nextTick()
+    }
+    const worldTransform = wrapper.get('.river-world').attributes('transform')
+    const zoom = getScale(worldTransform)
+    expect(getTranslateX(worldTransform)).toBeCloseTo(1200 - 9600 * zoom)
+    wrapper.unmount()
+  })
+
+  it('将鼠标拖拽限制在完整时间轴的左右边界内', async () => {
+    const wrapper = mountCanvas()
+    flushAnimationFrames()
+    const svg = wrapper.get('svg')
+    const zoomSurface = wrapper.get('[data-test="zoom-surface"]').element
+
+    await svg.trigger('keydown', { key: '+' })
+    flushAnimationFrames()
+    await nextTick()
+
+    zoomSurface.dispatchEvent(
+      new MouseEvent('mousedown', {
+        clientX: 600,
+        clientY: 360,
+        button: 0,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    window.dispatchEvent(
+      new MouseEvent('mousemove', {
+        clientX: -10_000,
+        clientY: 360,
+        buttons: 1,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    window.dispatchEvent(
+      new MouseEvent('mouseup', {
+        clientX: -10_000,
+        clientY: 360,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+
+    const worldTransform = wrapper.get('.river-world').attributes('transform')
+    const zoom = getScale(worldTransform)
+    expect(getTranslateX(worldTransform)).toBeCloseTo(1200 - 9600 * zoom)
+
+    zoomSurface.dispatchEvent(
+      new MouseEvent('mousedown', {
+        clientX: 600,
+        clientY: 360,
+        button: 0,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    window.dispatchEvent(
+      new MouseEvent('mousemove', {
+        clientX: 10_000,
+        clientY: 360,
+        buttons: 1,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    window.dispatchEvent(
+      new MouseEvent('mouseup', {
+        clientX: 10_000,
+        clientY: 360,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+    expect(
+      getTranslateX(wrapper.get('.river-world').attributes('transform')),
+    ).toBe(0)
+    wrapper.unmount()
+  })
+
+  it('纵向拖动与偏心缩放后三区仍保持固定纵向位置', async () => {
     const wrapper = mountCanvas()
     flushAnimationFrames()
     const zoomSurface = wrapper.get('[data-test="zoom-surface"]').element
+    const initialDynastyLabelY = getTranslateY(
+      wrapper
+        .get('[data-test="dynasty-label-prc"]')
+        .attributes('transform'),
+    )
 
     zoomSurface.dispatchEvent(
       new MouseEvent('mousedown', {
@@ -396,7 +605,6 @@ describe('ChinaRiverCanvas', () => {
     const worldTransform = wrapper.get('.river-world').attributes('transform')
     const zoom = getScale(worldTransform)
     const verticalOffset = getTranslateY(worldTransform)
-    const riverCenter = verticalOffset + 360 * zoom
     const timelineCenter = getTranslateY(
       wrapper.get('.timeline-axis > g').attributes('transform'),
     )
@@ -410,10 +618,17 @@ describe('ChinaRiverCanvas', () => {
       }
     ).__zoom
 
-    expect(verticalOffset).toBeCloseTo(360 - 360 * zoom)
-    expect(riverCenter).toBeCloseTo(timelineCenter)
-    expect(riverCenter).toBeCloseTo(eventAnchor)
-    expect(internalTransform.y).toBeCloseTo(360 - 360 * internalTransform.k)
+    expect(zoom).toBeGreaterThan(0)
+    expect(verticalOffset).toBe(0)
+    expect(internalTransform.y).toBe(0)
+    expect(
+      getTranslateY(
+        wrapper
+          .get('[data-test="dynasty-label-prc"]')
+          .attributes('transform'),
+      ),
+    ).toBe(initialDynastyLabelY)
+    expect(eventAnchor).toBeLessThan(timelineCenter)
     wrapper.unmount()
   })
 
@@ -433,7 +648,7 @@ describe('ChinaRiverCanvas', () => {
 
     expect(wrapper.find('[data-test="hover-year-line"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="hover-year-badge"]').text()).toContain(
-      '公元900年',
+      '公元前237年',
     )
     wrapper.unmount()
   })
@@ -470,12 +685,12 @@ describe('ChinaRiverCanvas', () => {
       '600',
     )
     expect(wrapper.get('[data-test="hover-year-badge"]').text()).toContain(
-      '公元900年',
+      '公元前237年',
     )
     wrapper.unmount()
   })
 
-  it('尺寸变化后更新画布范围并保持垂直中心缩放', async () => {
+  it('尺寸变化后更新画布范围并保持固定纵向分区', async () => {
     const wrapper = mountCanvas()
     flushAnimationFrames()
 
@@ -493,8 +708,15 @@ describe('ChinaRiverCanvas', () => {
     ).__zoom
 
     expect(wrapper.get('svg').attributes('viewBox')).toBe('0 0 800 600')
-    expect(getTranslateY(worldTransform)).toBeCloseTo(300 - 300 * zoom)
-    expect(internalTransform.y).toBeCloseTo(300 - 300 * internalTransform.k)
+    expect(zoom).toBeGreaterThan(0)
+    expect(getTranslateY(worldTransform)).toBe(0)
+    expect(getTranslateX(worldTransform)).toBeCloseTo(16)
+    expect(internalTransform.y).toBe(0)
+    expect(
+      getTranslateY(
+        wrapper.get('.timeline-axis > g').attributes('transform'),
+      ),
+    ).toBe(558)
     wrapper.unmount()
   })
 
@@ -524,7 +746,7 @@ describe('ChinaRiverCanvas', () => {
     wrapper.unmount()
   })
 
-  it('不渲染当前可见年份范围外的事件', () => {
+  it('不渲染当前可见年份范围外的事件', async () => {
     const offscreenEvent: IHistoricalEvent = {
       id: 'offscreen-event',
       year: -2400,
@@ -540,6 +762,11 @@ describe('ChinaRiverCanvas', () => {
         events: [...events, offscreenEvent],
       },
     })
+
+    flushAnimationFrames()
+    await wrapper.get('svg').trigger('keydown', { key: '+' })
+    flushAnimationFrames()
+    await nextTick()
 
     expect(
       wrapper.find('[data-test="river-event-offscreen-event"]').exists(),

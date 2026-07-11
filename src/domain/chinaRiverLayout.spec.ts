@@ -429,6 +429,31 @@ describe('layoutRiverEvents', () => {
     })
   })
 
+  it('将所有事件放在时间河流上方的正向分道', () => {
+    const nodes = layoutRiverEvents(events, {
+      zoom: 1,
+      pixelsPerYear: 10,
+    })
+
+    expect(nodes.every((node) => node.lane > 0)).toBe(true)
+  })
+
+  it('达到最大分道数后省略无法避让的低优先级事件', () => {
+    const crowdedEvents = Array.from({ length: 3 }, (_, index) => ({
+      ...sameYearAndImportanceEvents[0],
+      id: `crowded-${index}`,
+      title: `同年拥挤事件${index}`,
+    }))
+    const nodes = layoutRiverEvents(crowdedEvents, {
+      zoom: 1,
+      pixelsPerYear: 1,
+      maxLane: 2,
+    })
+
+    expect(nodes).toHaveLength(2)
+    expect(nodes.every((node) => node.lane <= 2)).toBe(true)
+  })
+
   it('同 importance、同年份奇偶且水平重叠时避让首选车道', () => {
     const nodes = layoutRiverEvents(collidingEvents, {
       zoom: 1,
@@ -482,6 +507,10 @@ describe('layoutRiverEvents', () => {
     [
       { zoom: 1, pixelsPerYear: 1, originYear: Number.POSITIVE_INFINITY },
       'originYear must be finite',
+    ],
+    [
+      { zoom: 1, pixelsPerYear: 1, maxLane: 0 },
+      'maxLane must be greater than 0',
     ],
   ])('拒绝非法事件布局选项 %#', (options, message) => {
     expect(() => layoutRiverEvents(events, options)).toThrowError(message)
