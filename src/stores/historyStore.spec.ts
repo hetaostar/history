@@ -363,6 +363,112 @@ describe('historyStore', () => {
     expect(store.events[0].title).toBe('秦统一六国')
   })
 
+  it('removes leaked format-key prefixes before saving events', () => {
+    const store = useHistoryStore()
+    const timeline = store.createTimeline({
+      name: '格式前缀清理',
+      description: '',
+      tags: [],
+    })
+
+    const event = store.createEvent({
+      timelineId: timeline.id,
+      timeLabel: 'date_format.bc前202年',
+      title: 'ate_format.bc汉朝建立',
+      hint: 'year_format.bc刘邦称帝',
+      summary: 'date_format.ad统一天下',
+      detail: '',
+      keywords: ['date_format.bc汉朝'],
+      personIds: [],
+    })
+
+    expect(event.timeLabel).toBe('前202年')
+    expect(event.title).toBe('汉朝建立')
+    expect(event.hint).toBe('刘邦称帝')
+    expect(event.summary).toBe('统一天下')
+    expect(event.keywords).toEqual(['汉朝'])
+
+    store.updateEvent(event.id, {
+      timelineId: timeline.id,
+      timeLabel: 'date_format.ad202年',
+      title: 'date_format.ad文景之治',
+      hint: '',
+      summary: '',
+      detail: '',
+      keywords: [],
+      personIds: [],
+    })
+
+    expect(store.events[0].timeLabel).toBe('202年')
+    expect(store.events[0].title).toBe('文景之治')
+  })
+
+  it('removes leaked format-key prefixes before saving visible entity fields', () => {
+    const store = useHistoryStore()
+
+    const timeline = store.createTimeline({
+      name: 'date_format.bc中国古代史',
+      description: 'date_format.ad朝代更迭',
+      tags: ['date_format.bc高考'],
+    })
+    const person = store.createPerson({
+      name: 'date_format.bc刘邦',
+      lifeTime: 'date_format.bc前256年-前195年',
+      summary: 'date_format.ad汉高祖',
+      biography: 'date_format.bc建立汉朝。',
+      achievements: 'date_format.ad休养生息。',
+      keywords: ['date_format.bc西汉'],
+    })
+    const card = store.createCard({
+      front: 'date_format.bc汉朝何时建立？',
+      back: 'date_format.bc前202年',
+      hint: 'date_format.ad刘邦',
+      keywords: ['date_format.bc汉朝'],
+      personIds: [person.id],
+      eventIds: [],
+    })
+
+    expect(timeline.name).toBe('中国古代史')
+    expect(timeline.description).toBe('朝代更迭')
+    expect(timeline.tags).toEqual(['高考'])
+    expect(person.name).toBe('刘邦')
+    expect(person.lifeTime).toBe('前256年-前195年')
+    expect(person.summary).toBe('汉高祖')
+    expect(person.biography).toBe('建立汉朝。')
+    expect(person.achievements).toBe('休养生息。')
+    expect(person.keywords).toEqual(['西汉'])
+    expect(card.front).toBe('汉朝何时建立？')
+    expect(card.back).toBe('前202年')
+    expect(card.hint).toBe('刘邦')
+    expect(card.keywords).toEqual(['汉朝'])
+
+    store.updateTimeline(timeline.id, {
+      name: 'date_format.ad世界史',
+      description: '',
+      tags: [],
+    })
+    store.updatePerson(person.id, {
+      name: 'date_format.ad汉高祖',
+      lifeTime: '',
+      summary: '',
+      biography: '',
+      achievements: '',
+      keywords: [],
+    })
+    store.updateCard(card.id, {
+      front: 'date_format.ad文景之治是什么？',
+      back: 'date_format.ad休养生息政策',
+      keywords: [],
+      personIds: [],
+      eventIds: [],
+    })
+
+    expect(store.timelines[0].name).toBe('世界史')
+    expect(store.people[0].name).toBe('汉高祖')
+    expect(store.cards[0].front).toBe('文景之治是什么？')
+    expect(store.cards[0].back).toBe('休养生息政策')
+  })
+
   it('sorts events with mixed BCE, year-suffixed, and fuzzy time labels', () => {
     const store = useHistoryStore()
     const timeline = store.createTimeline({

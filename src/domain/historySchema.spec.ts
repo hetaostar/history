@@ -177,6 +177,100 @@ describe('historySchema', () => {
     expect(parseHistoryData(data).cards[0].hint).toBe('')
   })
 
+  it('removes leaked format-key prefixes from event text fields', () => {
+    const data = {
+      ...createEmptyHistoryData(),
+      events: [
+        {
+          id: 'event-1',
+          timelineId: 'timeline-1',
+          timeLabel: 'date_format.bc前202年',
+          title: 'ate_format.bc汉朝建立',
+          hint: 'year_format.bc刘邦称帝',
+          summary: 'date_format.ad统一天下',
+          detail: '发生在汉初。',
+          keywords: ['date_format.bc汉朝', '西汉'],
+          personIds: [],
+          createdAt: '2026-06-21T00:00:00.000Z',
+          updatedAt: '2026-06-21T00:00:00.000Z',
+        },
+      ],
+    }
+
+    const parsedEvent = parseHistoryData(data).events[0]
+
+    expect(parsedEvent.timeLabel).toBe('前202年')
+    expect(parsedEvent.title).toBe('汉朝建立')
+    expect(parsedEvent.hint).toBe('刘邦称帝')
+    expect(parsedEvent.summary).toBe('统一天下')
+    expect(parsedEvent.detail).toBe('发生在汉初。')
+    expect(parsedEvent.keywords).toEqual(['汉朝', '西汉'])
+  })
+
+  it('removes leaked format-key prefixes from all visible data fields', () => {
+    const data = {
+      ...createEmptyHistoryData(),
+      timelines: [
+        {
+          id: 'timeline-1',
+          name: 'date_format.bc中国古代史',
+          description: 'date_format.ad朝代更迭',
+          tags: ['date_format.bc高考'],
+          createdAt: '2026-06-21T00:00:00.000Z',
+          updatedAt: '2026-06-21T00:00:00.000Z',
+        },
+      ],
+      people: [
+        {
+          id: 'person-1',
+          name: 'date_format.bc刘邦',
+          lifeTime: 'date_format.bc前256年-前195年',
+          summary: 'date_format.ad汉高祖',
+          biography: 'date_format.bc建立汉朝。',
+          achievements: 'date_format.ad休养生息。',
+          keywords: ['date_format.bc西汉'],
+          createdAt: '2026-06-21T00:00:00.000Z',
+          updatedAt: '2026-06-21T00:00:00.000Z',
+        },
+      ],
+      cards: [
+        {
+          id: 'card-1',
+          front: 'date_format.bc汉朝何时建立？',
+          back: 'date_format.bc前202年',
+          hint: 'date_format.ad刘邦',
+          keywords: ['date_format.bc汉朝'],
+          personIds: [],
+          eventIds: [],
+          createdAt: '2026-06-21T00:00:00.000Z',
+          updatedAt: '2026-06-21T00:00:00.000Z',
+        },
+      ],
+    }
+
+    const parsed = parseHistoryData(data)
+
+    expect(parsed.timelines[0]).toMatchObject({
+      name: '中国古代史',
+      description: '朝代更迭',
+      tags: ['高考'],
+    })
+    expect(parsed.people[0]).toMatchObject({
+      name: '刘邦',
+      lifeTime: '前256年-前195年',
+      summary: '汉高祖',
+      biography: '建立汉朝。',
+      achievements: '休养生息。',
+      keywords: ['西汉'],
+    })
+    expect(parsed.cards[0]).toMatchObject({
+      front: '汉朝何时建立？',
+      back: '前202年',
+      hint: '刘邦',
+      keywords: ['汉朝'],
+    })
+  })
+
   it('rejects malformed study record elements', () => {
     expect(() =>
       parseHistoryData({

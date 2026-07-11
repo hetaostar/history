@@ -1,7 +1,15 @@
-import type { IHistoryData, IHistoryEvent } from './historyTypes'
-import type { IStudyCard } from './historyTypes'
+import type {
+  IHistoryData,
+  IHistoryEvent,
+  IPerson,
+  IStudyCard,
+  ITimeline,
+} from './historyTypes'
 
 export const CURRENT_SCHEMA_VERSION = 1
+
+const LEAKED_FORMAT_KEY_PREFIX_RE =
+  /^(?:(?:[a-z][a-z_]*_)?format\.[a-z][a-z_]*\s*)+/i
 
 const REQUIRED_COLLECTIONS: Array<keyof Omit<IHistoryData, 'version'>> = [
   'timelines',
@@ -58,20 +66,68 @@ export function parseHistoryData(value: unknown): IHistoryData {
   // Future v1 → v2 migrations would dispatch on `version` here.
   return {
     version: CURRENT_SCHEMA_VERSION,
-    timelines,
-    events: events.map(stripLegacySortValue),
-    people,
-    cards: cards.map(normalizeStudyCard),
+    timelines: timelines.map((timeline) =>
+      normalizeTimeline(timeline as ITimeline),
+    ),
+    events: events.map((event) => normalizeHistoryEvent(event as IHistoryEvent)),
+    people: people.map((person) => normalizePerson(person as IPerson)),
+    cards: cards.map((card) => normalizeStudyCard(card as IStudyCard)),
     studyRecords,
   } as IHistoryData
 }
 
-function stripLegacySortValue(value: unknown): IHistoryEvent {
+export function normalizeTimeline(value: ITimeline): ITimeline {
+  return {
+    ...value,
+    name: removeLeakedFormatKeyPrefix(value.name),
+    description: removeLeakedFormatKeyPrefix(value.description),
+    tags: value.tags.map(removeLeakedFormatKeyPrefix),
+  }
+}
+
+export function normalizeHistoryEvent(value: IHistoryEvent): IHistoryEvent {
   const event = { ...(value as object) } as IHistoryEvent & {
     sortValue?: unknown
   }
   delete event.sortValue
-  return event
+
+  return {
+    ...event,
+    timeLabel: removeLeakedFormatKeyPrefix(event.timeLabel),
+    title: removeLeakedFormatKeyPrefix(event.title),
+    hint: removeLeakedFormatKeyPrefix(event.hint),
+    summary: removeLeakedFormatKeyPrefix(event.summary),
+    detail: removeLeakedFormatKeyPrefix(event.detail),
+    keywords: event.keywords.map(removeLeakedFormatKeyPrefix),
+  }
+}
+
+export function normalizePerson(value: IPerson): IPerson {
+  return {
+    ...value,
+    name: removeLeakedFormatKeyPrefix(value.name),
+    lifeTime: removeLeakedFormatKeyPrefix(value.lifeTime),
+    summary: removeLeakedFormatKeyPrefix(value.summary),
+    biography: removeLeakedFormatKeyPrefix(value.biography),
+    achievements: removeLeakedFormatKeyPrefix(value.achievements),
+    keywords: value.keywords.map(removeLeakedFormatKeyPrefix),
+  }
+}
+
+export function normalizeStudyCard(value: IStudyCard): IStudyCard {
+  const card = value as Omit<IStudyCard, 'hint'> & { hint?: string }
+
+  return {
+    ...card,
+    front: removeLeakedFormatKeyPrefix(card.front),
+    back: removeLeakedFormatKeyPrefix(card.back),
+    hint: removeLeakedFormatKeyPrefix(card.hint ?? ''),
+    keywords: card.keywords.map(removeLeakedFormatKeyPrefix),
+  }
+}
+
+function removeLeakedFormatKeyPrefix(value: string): string {
+  return value.replace(LEAKED_FORMAT_KEY_PREFIX_RE, '')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -135,15 +191,6 @@ function isStudyCard(value: unknown): boolean {
     isString(value.createdAt) &&
     isString(value.updatedAt)
   )
-}
-
-function normalizeStudyCard(value: unknown): IStudyCard {
-  const card = value as Omit<IStudyCard, 'hint'> & { hint?: string }
-
-  return {
-    ...card,
-    hint: card.hint ?? '',
-  }
 }
 
 function isStudyRecord(value: unknown): boolean {

@@ -3,6 +3,10 @@ import { createId } from '@/domain/createId'
 import {
   CURRENT_SCHEMA_VERSION,
   createEmptyHistoryData,
+  normalizeHistoryEvent,
+  normalizePerson,
+  normalizeStudyCard,
+  normalizeTimeline,
   parseHistoryData,
 } from '@/domain/historySchema'
 import { safeLocalStorage } from '@/domain/safeLocalStorage'
@@ -49,12 +53,12 @@ export const useHistoryStore = defineStore('history', {
   },
   actions: {
     createTimeline(input: TimelineInput): ITimeline {
-      const timeline: ITimeline = {
+      const timeline = normalizeTimeline({
         id: createId(),
         ...input,
         createdAt: now(),
         updatedAt: now(),
-      }
+      })
       this.timelines.push(timeline)
       this.persist()
       return timeline
@@ -65,10 +69,14 @@ export const useHistoryStore = defineStore('history', {
         return undefined
       }
 
-      Object.assign(timeline, {
-        ...input,
-        updatedAt: now(),
-      })
+      Object.assign(
+        timeline,
+        normalizeTimeline({
+          ...timeline,
+          ...input,
+          updatedAt: now(),
+        }),
+      )
       this.persist()
       return timeline
     },
@@ -94,13 +102,13 @@ export const useHistoryStore = defineStore('history', {
       return this.timelines.length !== initialLength
     },
     createEvent(input: EventInput): IHistoryEvent {
-      const event: IHistoryEvent = {
+      const event = normalizeHistoryEvent({
         id: createId(),
         ...input,
         personIds: input.personIds ?? [],
         createdAt: now(),
         updatedAt: now(),
-      }
+      })
       this.events.push(event)
       this.persist()
       return event
@@ -111,11 +119,15 @@ export const useHistoryStore = defineStore('history', {
         return undefined
       }
 
-      Object.assign(event, {
-        ...input,
-        personIds: input.personIds ?? [],
-        updatedAt: now(),
-      })
+      Object.assign(
+        event,
+        normalizeHistoryEvent({
+          ...event,
+          ...input,
+          personIds: input.personIds ?? [],
+          updatedAt: now(),
+        }),
+      )
       this.persist()
       return event
     },
@@ -133,12 +145,12 @@ export const useHistoryStore = defineStore('history', {
       return this.events.length !== initialLength
     },
     createPerson(input: PersonInput): IPerson {
-      const person: IPerson = {
+      const person = normalizePerson({
         id: createId(),
         ...input,
         createdAt: now(),
         updatedAt: now(),
-      }
+      })
       this.people.push(person)
       this.persist()
       return person
@@ -149,10 +161,14 @@ export const useHistoryStore = defineStore('history', {
         return undefined
       }
 
-      Object.assign(person, {
-        ...input,
-        updatedAt: now(),
-      })
+      Object.assign(
+        person,
+        normalizePerson({
+          ...person,
+          ...input,
+          updatedAt: now(),
+        }),
+      )
       this.persist()
       return person
     },
@@ -173,7 +189,7 @@ export const useHistoryStore = defineStore('history', {
       return this.people.length !== initialLength
     },
     createCard(input: CardInput): IStudyCard {
-      const card: IStudyCard = {
+      const card = normalizeStudyCard({
         id: createId(),
         ...input,
         hint: input.hint ?? '',
@@ -181,7 +197,7 @@ export const useHistoryStore = defineStore('history', {
         eventIds: input.eventIds ?? [],
         createdAt: now(),
         updatedAt: now(),
-      }
+      })
       this.cards.push(card)
       this.persist()
       return card
@@ -192,13 +208,17 @@ export const useHistoryStore = defineStore('history', {
         return undefined
       }
 
-      Object.assign(card, {
-        ...input,
-        hint: input.hint ?? '',
-        personIds: input.personIds ?? [],
-        eventIds: input.eventIds ?? [],
-        updatedAt: now(),
-      })
+      Object.assign(
+        card,
+        normalizeStudyCard({
+          ...card,
+          ...input,
+          hint: input.hint ?? '',
+          personIds: input.personIds ?? [],
+          eventIds: input.eventIds ?? [],
+          updatedAt: now(),
+        }),
+      )
       this.persist()
       return card
     },
