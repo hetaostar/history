@@ -12,6 +12,11 @@ export const router = createRouter({
       component: () => import('@/pages/TimelineListPage.vue'),
     },
     {
+      path: '/timelines/china-river',
+      name: 'china-history-river',
+      component: () => import('@/pages/ChinaHistoryRiverPage.vue'),
+    },
+    {
       path: '/timelines/:timelineId',
       component: () => import('@/pages/TimelineDetailPage.vue'),
     },

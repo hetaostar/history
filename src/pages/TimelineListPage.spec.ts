@@ -27,6 +27,66 @@ describe('TimelineListPage', () => {
     })
 
     expect(wrapper.text()).toContain('还没有时间线')
+    expect(wrapper.get('[data-test="china-river-card"]').text()).toContain(
+      '中华历史长河',
+    )
+    expect(
+      wrapper.get('[data-test="china-river-link"]').attributes('href'),
+    ).toBe('/timelines/china-river')
+  })
+
+  it('将只读历史长河固定在用户时间线之前', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useHistoryStore().createTimeline({
+      name: '用户时间线',
+      description: '',
+      tags: [],
+    })
+
+    const wrapper = mount(TimelineListPage, {
+      global: { plugins: [pinia, createTestRouter()] },
+    })
+    const cards = wrapper.findAll('.timeline-card')
+
+    expect(cards[0].attributes('data-test')).toBe('china-river-card')
+    expect(cards[0].text()).toContain('内置')
+    expect(cards[0].text()).toContain('只读')
+    expect(cards[0].text()).toContain('266 个事件')
+  })
+
+  it('为深色历史长河入口的标题和正文提供专用文本样式类', () => {
+    const wrapper = mount(TimelineListPage, {
+      global: { plugins: [createPinia(), createTestRouter()] },
+    })
+    const card = wrapper.get('[data-test="china-river-card"]')
+
+    expect(card.get('strong').classes()).toContain('china-river-title')
+    expect(card.get('p').classes()).toContain('china-river-description')
+  })
+
+  it('批量删除模式不允许选择固定历史长河', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useHistoryStore().createTimeline({
+      name: '可删除时间线',
+      description: '',
+      tags: [],
+    })
+
+    const wrapper = mount(TimelineListPage, {
+      global: { plugins: [pinia, createTestRouter()] },
+    })
+    const batchButton = wrapper
+      .findAll('.batch-actions button')
+      .find((button) => button.text() === '批量删除')
+
+    await batchButton!.trigger('click')
+
+    expect(
+      wrapper.get('[data-test="china-river-card"]').find('input').exists(),
+    ).toBe(false)
+    expect(wrapper.findAll('.select-timeline-checkbox')).toHaveLength(1)
   })
 
   it('renders a created timeline in the list', () => {

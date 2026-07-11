@@ -357,6 +357,24 @@ function parseCommaSeparatedText(value: string): string[] {
       </p>
 
       <article
+        class="timeline-card china-river-card"
+        data-test="china-river-card"
+      >
+        <RouterLink
+          class="timeline-card-link china-river-link"
+          data-test="china-river-link"
+          to="/timelines/china-river"
+        >
+          <span class="built-in-label">内置 · 只读</span>
+          <strong class="china-river-title">中华历史长河</strong>
+          <p class="china-river-description">
+            纵览中华文明朝代兴衰，收录 266 个事件。
+          </p>
+          <span class="river-entry-action">进入长河</span>
+        </RouterLink>
+      </article>
+
+      <article
         v-for="timeline in store.timelines"
         :key="timeline.id"
         class="timeline-card"
@@ -610,6 +628,56 @@ function parseCommaSeparatedText(value: string): string[] {
   gap: 10px;
   color: inherit;
   box-shadow: 0 8px 24px rgb(35 45 90 / 8%);
+}
+
+.china-river-card {
+  --china-river-title-color: var(--paper);
+  --china-river-description-color: color-mix(
+    in srgb,
+    var(--paper) 88%,
+    var(--aged-gold)
+  );
+
+  color: var(--paper);
+  background:
+    radial-gradient(
+      circle at 85% 20%,
+      color-mix(in srgb, var(--aged-gold) 24%, transparent),
+      transparent 34%
+    ),
+    linear-gradient(135deg, var(--ink), #172c2a);
+  border-color: color-mix(in srgb, var(--aged-gold) 52%, var(--ink));
+}
+
+.china-river-link {
+  min-height: 154px;
+  padding-left: 0;
+}
+
+.china-river-link .china-river-title {
+  color: var(--china-river-title-color);
+}
+
+.china-river-link .china-river-description {
+  color: var(--china-river-description-color);
+}
+
+.built-in-label {
+  color: var(--paper-deep);
+  font-family: var(--font-utility);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.river-entry-action {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  color: var(--paper-deep);
+  font-family: var(--font-utility);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .select-timeline-checkbox {
