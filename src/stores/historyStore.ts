@@ -4,15 +4,14 @@ import {
   CURRENT_SCHEMA_VERSION,
   createEmptyHistoryData,
   normalizeHistoryEvent,
-  normalizePerson,
   normalizeStudyCard,
   parseHistoryData,
 } from '@/domain/historySchema'
 import { safeLocalStorage } from '@/domain/safeLocalStorage'
+import { getAllTextbookPeople } from '@/domain/textbookSelectors'
 import type {
   IHistoryData,
   IHistoryEvent,
-  IPerson,
   IStudyCard,
   IStudyRecord,
   StudyResult,
@@ -23,7 +22,6 @@ const STORAGE_KEY = 'history-memorization:data'
 const SAVE_ERROR_MESSAGE = '本地保存失败，请重试。'
 
 type EventInput = Omit<IHistoryEvent, 'id' | 'createdAt' | 'updatedAt'>
-type PersonInput = Omit<IPerson, 'id' | 'createdAt' | 'updatedAt'>
 type CardInput = Omit<IStudyCard, 'id' | 'createdAt' | 'updatedAt' | 'hint'> &
   Partial<Pick<IStudyCard, 'hint'>>
 type HistoryState = IHistoryData & {
@@ -41,15 +39,14 @@ export const useHistoryStore = defineStore('history', {
     try {
       const storedData = JSON.parse(raw) as { version?: unknown }
       const parsed = parseHistoryData(storedData)
-      const requiresMigration =
-        storedData.version !== CURRENT_SCHEMA_VERSION
-      const migrationSaved =
-        !requiresMigration ||
+      const requiresCanonicalWrite = !areJsonValuesEqual(storedData, parsed)
+      const canonicalWriteSaved =
+        !requiresCanonicalWrite ||
         safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
 
       return {
         ...parsed,
-        lastError: migrationSaved ? '' : SAVE_ERROR_MESSAGE,
+        lastError: canonicalWriteSaved ? '' : SAVE_ERROR_MESSAGE,
       }
     } catch (error) {
       console.warn('Failed to load history data:', error)
@@ -110,50 +107,6 @@ export const useHistoryStore = defineStore('history', {
       )
       this.persist()
       return this.events.length !== initialLength
-    },
-    createPerson(input: PersonInput): IPerson {
-      const person = normalizePerson({
-        id: createId(),
-        ...input,
-        createdAt: now(),
-        updatedAt: now(),
-      })
-      this.people.push(person)
-      this.persist()
-      return person
-    },
-    updatePerson(id: string, input: PersonInput): IPerson | undefined {
-      const person = this.people.find((item) => item.id === id)
-      if (!person) {
-        return undefined
-      }
-
-      Object.assign(
-        person,
-        normalizePerson({
-          ...person,
-          ...input,
-          updatedAt: now(),
-        }),
-      )
-      this.persist()
-      return person
-    },
-    deletePerson(id: string): boolean {
-      const initialLength = this.people.length
-
-      this.people = this.people.filter((person) => person.id !== id)
-      this.events.forEach((event) => {
-        event.personIds = event.personIds.filter((personId) => personId !== id)
-      })
-      this.cards.forEach((card) => {
-        card.personIds = card.personIds.filter((personId) => personId !== id)
-      })
-      this.studyRecords = this.studyRecords.filter(
-        (record) => record.targetType !== 'person' || record.targetId !== id,
-      )
-      this.persist()
-      return this.people.length !== initialLength
     },
     createCard(input: CardInput): IStudyCard {
       const card = normalizeStudyCard({
@@ -221,7 +174,6 @@ export const useHistoryStore = defineStore('history', {
         JSON.stringify({
           version: CURRENT_SCHEMA_VERSION,
           events: this.events,
-          people: this.people,
           cards: this.cards,
           studyRecords: this.studyRecords,
         }),
@@ -256,14 +208,11 @@ export const useHistoryStore = defineStore('history', {
             ...event.keywords,
           ]),
         ),
-        people: this.people.filter((person) =>
+        people: getAllTextbookPeople().filter((person) =>
           includes([
             person.name,
             person.lifeTime,
             person.summary,
-            person.biography,
-            person.achievements,
-            ...person.keywords,
           ]),
         ),
         cards: this.cards.filter((card) =>
@@ -291,4 +240,39 @@ function getTimeSortValue(timeLabel: string): number {
   if (anyYearMatch) return Number(anyYearMatch[1])
 
   return Number.MAX_SAFE_INTEGER
+}
+
+function areJsonValuesEqual(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((item, index) => areJsonValuesEqual(item, right[index]))
+    )
+  }
+  if (
+    typeof left !== 'object' ||
+    left === null ||
+    typeof right !== 'object' ||
+    right === null
+  ) {
+    return false
+  }
+
+  const leftRecord = left as Record<string, unknown>
+  const rightRecord = right as Record<string, unknown>
+  const leftKeys = Object.keys(leftRecord)
+  const rightKeys = Object.keys(rightRecord)
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(rightRecord, key) &&
+        areJsonValuesEqual(leftRecord[key], rightRecord[key]),
+    )
+  )
 }

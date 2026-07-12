@@ -63,7 +63,6 @@ describe('router', () => {
       '/events',
       '/china-river',
       '/people',
-      '/people/person-1',
       '/cards',
       '/search',
     ]
@@ -71,5 +70,18 @@ describe('router', () => {
     legacyPaths.forEach((path) => {
       expect(router.resolve(path).matched).not.toHaveLength(0)
     })
+  })
+
+  it('人物详情改用列表 query 且不再提供独立详情路由', () => {
+    const personList = router.resolve(
+      '/people?person=g7u-confucius#textbook-grade-7-up',
+    )
+
+    expect(personList.matched[personList.matched.length - 1]?.path).toBe(
+      '/people',
+    )
+    expect(personList.query.person).toBe('g7u-confucius')
+    expect(personList.hash).toBe('#textbook-grade-7-up')
+    expect(router.resolve('/people/g7u-confucius').matched).toHaveLength(0)
   })
 })

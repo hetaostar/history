@@ -1,219 +1,315 @@
-import { mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { TEXTBOOK_LESSONS, TEXTBOOK_PEOPLE, TEXTBOOKS } from '@/data/textbooks'
 import PersonListPage from './PersonListPage.vue'
-import { useHistoryStore } from '@/stores/historyStore'
 
-function createTestRouter() {
-  return createRouter({
+async function mountPage(path = '/people') {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', component: { template: '<div />' } },
-      { path: '/people/:personId', component: { template: '<div />' } },
+      { path: '/people', component: PersonListPage },
+      {
+        path: '/textbooks/:textbookId/lessons/:lessonId',
+        component: { template: '<div />' },
+      },
     ],
   })
+  await router.push(path)
+  await router.isReady()
+
+  return {
+    router,
+    wrapper: mount(PersonListPage, {
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    }),
+  }
 }
+
+enableAutoUnmount(afterEach)
 
 describe('PersonListPage', () => {
   beforeEach(() => {
     localStorage.clear()
-    setActivePinia(createPinia())
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    })
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockReturnValue({ matches: false }),
+    )
   })
 
-  it('创建人物：未填姓名时显示错误，填写后才创建', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    const store = useHistoryStore()
-
-    const wrapper = mount(PersonListPage, {
-      global: { plugins: [pinia, createTestRouter()] },
-    })
-
-    // 打开新建表单
-    const createButton = wrapper
-      .findAll('button')
-      .find((btn) => btn.text().includes('新建人物'))
-    await createButton!.trigger('click')
-
-    // 未填姓名直接提交
-    const form = wrapper.get('.person-form')
-    await form.trigger('submit')
-
-    expect(wrapper.text()).toContain('请先填写人物姓名。')
-    expect(store.people).toHaveLength(0)
-
-    // 填写姓名后提交
-    await wrapper.get('input[placeholder="例如：孙中山"]').setValue('孙中山')
-    await form.trigger('submit')
-
-    expect(store.people).toHaveLength(1)
-    expect(store.people[0].name).toBe('孙中山')
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    document.body.innerHTML = ''
   })
 
-  it('编辑人物：保存后 store.people 更新', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    const store = useHistoryStore()
-    const person = store.createPerson({
-      name: '原名',
-      lifeTime: '',
-      summary: '',
-      biography: '',
-      achievements: '',
-      keywords: [],
-    })
+  it('展示 85 位只读教材人物元信息', async () => {
+    const { wrapper } = await mountPage()
 
-    const wrapper = mount(PersonListPage, {
-      global: { plugins: [pinia, createTestRouter()] },
-    })
-
-    // 打开编辑表单
-    await wrapper.get('[aria-label="编辑人物"]').trigger('click')
-
-    const editForm = wrapper.get('.inline-form')
-    const nameInput = editForm.findAll('input[type="text"]')[0]
-    await nameInput.setValue('新名字')
-
-    // 提交保存
-    await editForm.trigger('submit')
-
-    expect(store.people.find((p) => p.id === person.id)?.name).toBe('新名字')
+    expect(TEXTBOOK_PEOPLE).toHaveLength(85)
+    expect(wrapper.text()).toContain('内置 · 只读 · 85 位人物')
+    expect(wrapper.findAll('[data-test^="person-card-"]')).toHaveLength(85)
   })
 
-  it('单条删除：弹出 ConfirmActionModal，确认后人物被删', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    const store = useHistoryStore()
-    const person = store.createPerson({
-      name: '待删除',
-      lifeTime: '',
-      summary: '',
-      biography: '',
-      achievements: '',
-      keywords: [],
-    })
+  it('只按已出版教材分组并展示当前册课程', async () => {
+    const { wrapper } = await mountPage()
+    const publishedTextbooks = TEXTBOOKS.filter(
+      (textbook) => textbook.status === 'published',
+    )
+    const sections = wrapper.findAll('[data-test^="textbook-section-"]')
 
-    const wrapper = mount(PersonListPage, {
-      global: { plugins: [pinia, createTestRouter()] },
-    })
+    expect(sections).toHaveLength(publishedTextbooks.length)
+    expect(sections.map((section) => section.get('h3').text())).toEqual(
+      publishedTextbooks.map((textbook) => textbook.title),
+    )
 
-    // 打开编辑表单
-    await wrapper.get('[aria-label="编辑人物"]').trigger('click')
-
-    // 点击删除按钮
-    const editForm = wrapper.get('.inline-form')
-    const deleteButton = editForm
-      .findAll('button')
-      .find((btn) => btn.text().includes('删除'))
-    await deleteButton!.trigger('click')
-
-    // 确认弹窗出现
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-
-    // 点击确认
-    const confirmButton = wrapper
-      .findAll('[role="dialog"] button')
-      .find((btn) => btn.text().includes('确认'))
-    await confirmButton!.trigger('click')
-
-    expect(store.people.find((p) => p.id === person.id)).toBeUndefined()
+    const confuciusCard = wrapper.get('[data-test="person-card-g7u-confucius"]')
+    expect(confuciusCard.text()).toContain('孔子')
+    expect(confuciusCard.text()).toContain('前551—前479年')
+    expect(confuciusCard.text()).toContain('儒家学派创始人')
+    expect(confuciusCard.text()).toContain('第7课 百家争鸣')
+    expect(
+      confuciusCard.get('[data-test="person-lesson-g7u-lesson-07"]').attributes(
+        'href',
+      ),
+    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-07')
   })
 
-  it('批量删除已背过：只删已背过的人物', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    const store = useHistoryStore()
-    const rememberedPerson = store.createPerson({
-      name: '已背过',
-      lifeTime: '',
-      summary: '',
-      biography: '',
-      achievements: '',
-      keywords: [],
+  it('人物详情按钮与课程链接为兄弟交互元素', async () => {
+    const { wrapper } = await mountPage()
+    const card = wrapper.get('[data-test="person-card-g7u-confucius"]')
+    const detailButton = card.get('[data-test="open-person-g7u-confucius"]')
+    const lessonLink = card.get('[data-test="person-lesson-g7u-lesson-07"]')
+
+    expect(detailButton.element.tagName).toBe('BUTTON')
+    expect(lessonLink.element.tagName).toBe('A')
+    expect(detailButton.element.contains(lessonLink.element)).toBe(false)
+    expect(detailButton.element.parentElement).toBe(lessonLink.element.parentElement)
+  })
+
+  it('不显示人物增删改、批删和事件新建入口', async () => {
+    const { wrapper } = await mountPage()
+
+    expect(wrapper.text()).not.toContain('新建人物')
+    expect(wrapper.text()).not.toContain('编辑人物')
+    expect(wrapper.text()).not.toContain('批量删除')
+    expect(wrapper.text()).not.toContain('新增相关事件')
+    expect(wrapper.find('form').exists()).toBe(false)
+  })
+
+  it('通过 person query 打开详情并安全处理未知人物', async () => {
+    const person = TEXTBOOK_PEOPLE[0]
+    const { router, wrapper } = await mountPage(
+      `/people?person=${person.id}#textbook-grade-7-up`,
+    )
+
+    expect(wrapper.get('[data-test="textbook-person-detail"]').text()).toContain(
+      person.name,
+    )
+
+    await router.replace('/people?person=missing#textbook-grade-7-up')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="textbook-person-detail"]').exists()).toBe(
+      false,
+    )
+    expect(wrapper.get('h1').text()).toBe('教材人物')
+  })
+
+  it('点击人物按钮写入 query，关闭只移除 person 并保留其他 query/hash', async () => {
+    const person = TEXTBOOK_PEOPLE[0]
+    const { router, wrapper } = await mountPage(
+      '/people?mode=review#textbook-grade-7-up',
+    )
+
+    await wrapper.get(`[data-test="open-person-${person.id}"]`).trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query).toEqual({
+      mode: 'review',
+      person: person.id,
     })
-    const forgottenPerson = store.createPerson({
-      name: '未背过',
-      lifeTime: '',
-      summary: '',
-      biography: '',
-      achievements: '',
-      keywords: [],
+    expect(router.currentRoute.value.hash).toBe('#textbook-grade-7-up')
+
+    await wrapper.get('[data-test="close-person-detail"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query).toEqual({ mode: 'review' })
+    expect(router.currentRoute.value.hash).toBe('#textbook-grade-7-up')
+  })
+
+  it('键盘激活课程链接不会打开人物详情', async () => {
+    const { router, wrapper } = await mountPage(
+      '/people#textbook-grade-7-up',
+    )
+    const lesson = TEXTBOOK_LESSONS.find((item) =>
+      (item.personIds as readonly string[]).includes('g7u-confucius'),
+    )!
+
+    await wrapper
+      .get(`[data-test="person-lesson-${lesson.id}"]`)
+      .trigger('keydown', { key: 'Enter' })
+    await wrapper
+      .get(`[data-test="person-lesson-${lesson.id}"]`)
+      .trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query).not.toHaveProperty('person')
+    expect(wrapper.find('[data-test="textbook-person-detail"]').exists()).toBe(
+      false,
+    )
+  })
+
+  it('点击册次导航更新 hash 并平滑滚动到对应分组', async () => {
+    const { router, wrapper } = await mountPage()
+    const section = wrapper.get(
+      '[data-test="textbook-section-grade-7-down"]',
+    )
+    Object.defineProperty(section.element, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
     })
-    store.recordStudy('person', rememberedPerson.id, 'remembered')
 
-    const wrapper = mount(PersonListPage, {
-      global: { plugins: [pinia, createTestRouter()] },
+    await wrapper
+      .get('[data-textbook-id="grade-7-down"]')
+      .trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.hash).toBe('#textbook-grade-7-down')
+    expect(section.element.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    })
+    expect(section.element.scrollIntoView).toHaveBeenCalledTimes(1)
+  })
+
+  it('运行期切换到有效 hash 时定位对应分组并更新高亮', async () => {
+    const { router, wrapper } = await mountPage(
+      '/people#textbook-grade-7-up',
+    )
+    await flushPromises()
+    const section = wrapper.get(
+      '[data-test="textbook-section-grade-7-down"]',
+    )
+    Object.defineProperty(section.element, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
     })
 
-    // 进入批量删除模式
-    const batchButton = wrapper
-      .findAll('.batch-actions button')
-      .find((btn) => btn.text().includes('批量删除'))
-    await batchButton!.trigger('click')
+    await router.replace('/people#textbook-grade-7-down')
+    await flushPromises()
 
-    // 点击"删除已背过"
-    const rememberedButton = wrapper
-      .findAll('.batch-actions button')
-      .find((btn) => btn.text().includes('删除已背过'))
-    await rememberedButton!.trigger('click')
+    expect(section.element.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'auto',
+      block: 'start',
+    })
+    expect(
+      wrapper
+        .get('[data-textbook-id="grade-7-down"]')
+        .attributes('aria-current'),
+    ).toBe('location')
+  })
 
-    // 点击确认
-    const confirmButton = wrapper
-      .findAll('[role="dialog"] button')
-      .find((btn) => btn.text().includes('确认'))
-    await confirmButton!.trigger('click')
+  it('运行期无效 hash 不改变高亮或触发滚动', async () => {
+    const { router, wrapper } = await mountPage(
+      '/people#textbook-grade-7-up',
+    )
+    await flushPromises()
+    const sections = wrapper.findAll<HTMLElement>(
+      '[data-test^="textbook-section-"]',
+    )
+    sections.forEach((section) => {
+      vi.mocked(section.element.scrollIntoView).mockClear()
+    })
+
+    await router.replace('/people#textbook-missing')
+    await flushPromises()
 
     expect(
-      store.people.find((p) => p.id === rememberedPerson.id),
-    ).toBeUndefined()
-    expect(store.people.find((p) => p.id === forgottenPerson.id)).toBeDefined()
+      wrapper
+        .get('[data-textbook-id="grade-7-up"]')
+        .attributes('aria-current'),
+    ).toBe('location')
+    expect(
+      sections.some((section) =>
+        vi.mocked(section.element.scrollIntoView).mock.calls.length > 0,
+      ),
+    ).toBe(false)
   })
 
-  it('批量删除未背过：只删未背过的人物', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    const store = useHistoryStore()
-    const rememberedPerson = store.createPerson({
-      name: '已背过',
-      lifeTime: '',
-      summary: '',
-      biography: '',
-      achievements: '',
-      keywords: [],
-    })
-    const forgottenPerson = store.createPerson({
-      name: '未背过',
-      lifeTime: '',
-      summary: '',
-      biography: '',
-      achievements: '',
-      keywords: [],
-    })
-    store.recordStudy('person', rememberedPerson.id, 'remembered')
+  it('首次进入 hash 册次时定位并尊重减少动态效果', async () => {
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) => ({ matches: query.includes('prefers-reduced-motion') }) as MediaQueryList,
+    )
 
-    const wrapper = mount(PersonListPage, {
-      global: { plugins: [pinia, createTestRouter()] },
-    })
+    const { wrapper } = await mountPage(
+      '/people#textbook-grade-7-down',
+    )
+    await flushPromises()
 
-    const batchButton = wrapper
-      .findAll('.batch-actions button')
-      .find((btn) => btn.text().includes('批量删除'))
-    await batchButton!.trigger('click')
-
-    const forgottenButton = wrapper
-      .findAll('.batch-actions button')
-      .find((btn) => btn.text().includes('删除未背过'))
-    await forgottenButton!.trigger('click')
-
-    const confirmButton = wrapper
-      .findAll('[role="dialog"] button')
-      .find((btn) => btn.text().includes('确认'))
-    await confirmButton!.trigger('click')
-
-    expect(store.people.find((p) => p.id === rememberedPerson.id)).toBeDefined()
     expect(
-      store.people.find((p) => p.id === forgottenPerson.id),
-    ).toBeUndefined()
+      wrapper.get('[data-test="textbook-section-grade-7-down"]').element
+        .scrollIntoView,
+    ).toHaveBeenCalledWith({
+      behavior: 'auto',
+      block: 'start',
+    })
+  })
+
+  it('滚动时按 header offset 高亮当前册次', async () => {
+    const appHeader = document.createElement('header')
+    appHeader.className = 'app-header'
+    appHeader.getBoundingClientRect = () => ({ height: 120 }) as DOMRect
+    document.body.appendChild(appHeader)
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) => ({ matches: query.includes('max-width') }) as MediaQueryList,
+    )
+    const { wrapper } = await mountPage()
+    await flushPromises()
+    const sections = wrapper.findAll<HTMLElement>(
+      '[data-test^="textbook-section-"]',
+    )
+    sections[0].element.getBoundingClientRect = () =>
+      ({ top: -100 }) as DOMRect
+    sections[1].element.getBoundingClientRect = () =>
+      ({ top: 160 }) as DOMRect
+
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+
+    expect(
+      wrapper
+        .get('[data-textbook-id="grade-7-down"]')
+        .attributes('aria-current'),
+    ).toBe('location')
+    expect(wrapper.get('.person-page').attributes('style')).toContain(
+      '--app-header-height: 120px',
+    )
+  })
+
+  it('卸载时清理 resize 和 scroll 监听', async () => {
+    const addEventListener = vi.spyOn(window, 'addEventListener')
+    const removeEventListener = vi.spyOn(window, 'removeEventListener')
+    const { wrapper } = await mountPage()
+    await flushPromises()
+
+    wrapper.unmount()
+
+    const resizeHandler = addEventListener.mock.calls.find(
+      ([eventName]) => eventName === 'resize',
+    )?.[1]
+    const scrollHandler = addEventListener.mock.calls.find(
+      ([eventName]) => eventName === 'scroll',
+    )?.[1]
+    expect(removeEventListener).toHaveBeenCalledWith('resize', resizeHandler)
+    expect(removeEventListener).toHaveBeenCalledWith('scroll', scrollHandler)
   })
 })

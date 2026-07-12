@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getTextbookPersonById } from '@/domain/textbookSelectors'
 import { useHistoryStore } from '@/stores/historyStore'
 import FlashcardPage from './FlashcardPage.vue'
 
@@ -153,18 +154,13 @@ describe('FlashcardPage', () => {
     expect(wrapper.get('.batch-actions').text()).toContain('已选择 1 张卡片')
   })
 
-  it('shows related people and events during card study', async () => {
+  it('背诵时解析教材人物名、保留未知人物 ID，并解析本地事件名', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useHistoryStore()
-    const person = store.createPerson({
-      name: '康有为',
-      lifeTime: '',
-      summary: '',
-      biography: '',
-      achievements: '',
-      keywords: [],
-    })
+    const textbookPerson = getTextbookPersonById('g7u-confucius')
+    expect(textbookPerson).toBeDefined()
+    const unknownPersonId = 'unknown-person-id'
     const event = store.createEvent({
       timeLabel: '1898年',
       title: '戊戌变法',
@@ -172,16 +168,17 @@ describe('FlashcardPage', () => {
       summary: '',
       detail: '',
       keywords: [],
-      personIds: [person.id],
+      personIds: [textbookPerson!.id],
     })
-    store.createCard({
+    const card = store.createCard({
       front: '戊戌变法的主要内容是什么？',
       back: '维新变法。',
       hint: '',
       keywords: [],
-      personIds: [person.id],
+      personIds: [textbookPerson!.id, unknownPersonId],
       eventIds: [event.id],
     })
+    card.personIds = [textbookPerson!.id, unknownPersonId]
 
     const wrapper = mount(FlashcardPage, {
       global: {
@@ -194,7 +191,9 @@ describe('FlashcardPage', () => {
 
     const studyDialog = wrapper.get('[aria-label="背诵练习"]')
 
-    expect(studyDialog.text()).toContain('关联人物：康有为')
+    expect(studyDialog.text()).toContain(
+      `关联人物：${textbookPerson!.name}、${unknownPersonId}`,
+    )
     expect(studyDialog.text()).toContain('关联事件：戊戌变法')
   })
 

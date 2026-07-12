@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TEXTBOOK_PEOPLE } from '../data/textbooks'
 import {
   CURRENT_SCHEMA_VERSION,
   createEmptyHistoryData,
@@ -6,6 +7,7 @@ import {
 } from './historySchema'
 
 const timestamp = '2026-06-21T00:00:00.000Z'
+const validPersonId = TEXTBOOK_PEOPLE[0].id
 
 function createEvent(overrides: Record<string, unknown> = {}) {
   return {
@@ -24,27 +26,44 @@ function createEvent(overrides: Record<string, unknown> = {}) {
 }
 
 describe('historySchema', () => {
-  it('uses a flat v2 schema without timelines', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(2)
+  it('使用不含 timelines 和 people 的扁平 v3 schema', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(3)
     expect(createEmptyHistoryData()).toEqual({
-      version: 2,
+      version: 3,
       events: [],
-      people: [],
       cards: [],
       studyRecords: [],
     })
   })
 
-  it('accepts valid v2 data', () => {
+  it('接受有效 v3 数据并过滤事件与卡片中的无效教材人物 ID', () => {
     const data = {
       ...createEmptyHistoryData(),
-      events: [createEvent()],
+      events: [
+        createEvent({ personIds: ['legacy-person', validPersonId, validPersonId] }),
+      ],
+      cards: [
+        {
+          id: 'card-1',
+          front: '孔子是谁？',
+          back: '儒家学派创始人',
+          hint: '',
+          keywords: [],
+          personIds: ['legacy-person', validPersonId],
+          eventIds: ['event-1'],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      ],
     }
 
-    expect(parseHistoryData(data)).toEqual(data)
+    const parsed = parseHistoryData(data)
+
+    expect(parsed.events[0].personIds).toEqual([validPersonId, validPersonId])
+    expect(parsed.cards[0].personIds).toEqual([validPersonId])
   })
 
-  it('migrates v1 timelines to flat events without losing event data', () => {
+  it('迁移 v1 时移除 timeline、旧 people 与人物学习记录并保留其他数据', () => {
     const parsed = parseHistoryData({
       version: 1,
       timelines: [
@@ -61,7 +80,7 @@ describe('historySchema', () => {
         createEvent({
           timelineId: 'timeline-1',
           title: '辛亥革命',
-          personIds: ['person-1'],
+          personIds: ['person-1', validPersonId],
         }),
       ],
       people: [
@@ -84,7 +103,7 @@ describe('historySchema', () => {
           back: '1911年',
           hint: '',
           keywords: [],
-          personIds: ['person-1'],
+          personIds: ['person-1', validPersonId],
           eventIds: ['event-1'],
           createdAt: timestamp,
           updatedAt: timestamp,
@@ -98,41 +117,68 @@ describe('historySchema', () => {
           result: 'remembered',
           createdAt: timestamp,
         },
+        {
+          id: 'record-2',
+          targetType: 'person',
+          targetId: 'person-1',
+          result: 'forgotten',
+          createdAt: timestamp,
+        },
       ],
     })
 
-    expect(parsed.version).toBe(2)
+    expect(parsed.version).toBe(3)
     expect(parsed).not.toHaveProperty('timelines')
+    expect(parsed).not.toHaveProperty('people')
     expect(parsed.events[0]).toMatchObject({
       id: 'event-1',
       title: '辛亥革命',
-      personIds: ['person-1'],
+      personIds: [validPersonId],
     })
     expect(parsed.events[0]).not.toHaveProperty('timelineId')
-    expect(parsed.people[0]?.id).toBe('person-1')
     expect(parsed.cards[0]?.eventIds).toEqual(['event-1'])
+    expect(parsed.cards[0]?.personIds).toEqual([validPersonId])
     expect(parsed.studyRecords[0]).toMatchObject({
       targetId: 'event-1',
       result: 'remembered',
     })
+    expect(parsed.studyRecords).toHaveLength(1)
   })
 
-  it('migrates legacy data without a version through v1 to v2', () => {
+  it.each([undefined, 1, 2])('兼容旧版本 %s 并迁移到 v3', (version) => {
     const parsed = parseHistoryData({
+      ...(version === undefined ? {} : { version }),
       timelines: [],
       events: [],
       people: [],
       cards: [],
-      studyRecords: [],
+      studyRecords: [
+        {
+          id: 'record-1',
+          targetType: 'person',
+          targetId: validPersonId,
+          result: 'remembered',
+          createdAt: timestamp,
+        },
+      ],
     })
 
     expect(parsed).toEqual(createEmptyHistoryData())
   })
 
-  it('rejects future schema versions and malformed collections', () => {
+  it('显式版本仅接受正整数并区分未来版本与格式错误', () => {
     expect(() =>
       parseHistoryData({ ...createEmptyHistoryData(), version: 999 }),
     ).toThrow('导入文件版本过高，请升级应用')
+
+    for (const version of [-1, 0, 1.5, Number.NaN, '2']) {
+      expect(() =>
+        parseHistoryData({ ...createEmptyHistoryData(), version }),
+      ).toThrow('导入文件格式不正确')
+    }
+  })
+
+  it('拒绝集合缺失或集合成员格式错误', () => {
     expect(() => parseHistoryData({ events: [] })).toThrow(
       '导入文件格式不正确',
     )

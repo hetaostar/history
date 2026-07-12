@@ -11,10 +11,12 @@ import {
 import {
   findLessonsByEventId,
   findLessonsByPersonId,
+  getAllTextbookPeople,
   getTextbookById,
   getTextbookEventYearRange,
   getTextbookEvents,
   getTextbookLessons,
+  getTextbookPersonById,
   getTextbookPeople,
   getTextbookUnits,
 } from './textbookSelectors'
@@ -399,6 +401,14 @@ describe('课程事件映射', () => {
 })
 
 describe('教材查询层', () => {
+  it('仅从统一教材人物集合查询全部人物和单个人物', () => {
+    expect(getAllTextbookPeople()).toEqual(TEXTBOOK_PEOPLE)
+    expect(getTextbookPersonById('g7u-confucius')).toBe(
+      TEXTBOOK_PEOPLE.find((person) => person.id === 'g7u-confucius'),
+    )
+    expect(getTextbookPersonById('unknown-person')).toBeUndefined()
+  })
+
   it('按 ID 查询教材并安全处理未知 ID', () => {
     expect(getTextbookById('grade-7-up')?.title).toBe('七年级上册')
     expect(getTextbookById('unknown')).toBeUndefined()

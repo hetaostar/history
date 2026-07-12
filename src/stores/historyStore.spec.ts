@@ -48,7 +48,7 @@ describe('historyStore', () => {
     ])
   })
 
-  it('searches only people, events and cards', () => {
+  it('搜索保留本地事件和卡片并从静态教材人物中匹配姓名', () => {
     const store = useHistoryStore()
     store.createEvent(eventInput)
     store.createCard({
@@ -64,6 +64,18 @@ describe('historyStore', () => {
     expect(result).not.toHaveProperty('timelines')
     expect(result.events).toHaveLength(1)
     expect(result.cards).toHaveLength(1)
+    expect(store.search('孔子').people).toMatchObject([
+      { id: 'g7u-confucius', name: '孔子' },
+    ])
+  })
+
+  it.each([
+    ['前551', 'g7u-confucius'],
+    ['重视教育与仁礼', 'g7u-confucius'],
+  ])('静态人物搜索匹配 lifeTime 或 summary：%s', (query, personId) => {
+    expect(useHistoryStore().search(query).people.map((person) => person.id)).toContain(
+      personId,
+    )
   })
 
   it('removes a deleted event from cards and study records', () => {
@@ -85,45 +97,119 @@ describe('historyStore', () => {
     expect(store.studyRecords).toEqual([])
   })
 
-  it('removes a deleted person from related events', () => {
+  it('不再暴露人物 state、CRUD，也不把人物写入持久化数据', () => {
     const store = useHistoryStore()
-    const person = store.createPerson({
-      name: '孙中山',
-      lifeTime: '1866-1925',
-      summary: '革命家。',
-      biography: '领导革命。',
-      achievements: '推动共和。',
-      keywords: ['近代史'],
-    })
-    store.createEvent({ ...eventInput, personIds: [person.id] })
+    const exposed = store as unknown as Record<string, unknown>
 
-    store.deletePerson(person.id)
+    expect(exposed).not.toHaveProperty('people')
+    expect(exposed).not.toHaveProperty('createPerson')
+    expect(exposed).not.toHaveProperty('updatePerson')
+    expect(exposed).not.toHaveProperty('deletePerson')
 
-    expect(store.events[0].personIds).toEqual([])
+    store.persist()
+    const persisted = JSON.parse(
+      localStorage.getItem('history-memorization:data') ?? '{}',
+    )
+    expect(persisted).not.toHaveProperty('people')
   })
 
-  it('loads v1 local data and immediately persists the v2 migration', () => {
+  it('加载 v1 本地数据后立即持久化 v3 迁移', () => {
     localStorage.setItem(
       'history-memorization:data',
       JSON.stringify({
         version: 1,
         timelines: [],
         events: [{ id: 'event-1', ...eventInput, createdAt: '', updatedAt: '' }],
-        people: [],
+        people: [
+          {
+            id: 'legacy-person',
+            name: '旧人物',
+            lifeTime: '',
+            summary: '',
+            biography: '',
+            achievements: '',
+            keywords: [],
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
         cards: [],
         studyRecords: [],
       }),
     )
 
     const store = useHistoryStore()
-    expect(store.version).toBe(2)
+    expect(store.version).toBe(3)
     expect(store.events[0]).not.toHaveProperty('timelineId')
+    expect(store.events[0].personIds).toEqual([])
 
     const persisted = JSON.parse(
       localStorage.getItem('history-memorization:data') ?? '{}',
     )
-    expect(persisted.version).toBe(2)
+    expect(persisted.version).toBe(3)
     expect(persisted).not.toHaveProperty('timelines')
+    expect(persisted).not.toHaveProperty('people')
+  })
+
+  it('加载非 canonical v3 数据后立即规范化内存和本地存储', () => {
+    const storedData = {
+      version: 3,
+      events: [
+        {
+          id: 'event-1',
+          ...eventInput,
+          personIds: ['g7u-confucius', 'missing-person'],
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+      people: [{ id: 'legacy-person' }],
+      cards: [],
+      studyRecords: [],
+    }
+    localStorage.setItem(
+      'history-memorization:data',
+      JSON.stringify(storedData),
+    )
+    const setItem = vi.spyOn(localStorage, 'setItem')
+
+    const store = useHistoryStore()
+
+    expect(store.events[0].personIds).toEqual(['g7u-confucius'])
+    expect(setItem).toHaveBeenCalledTimes(1)
+    expect(
+      JSON.parse(localStorage.getItem('history-memorization:data') ?? '{}'),
+    ).toEqual({
+      version: 3,
+      events: [
+        {
+          id: 'event-1',
+          ...eventInput,
+          personIds: ['g7u-confucius'],
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+      cards: [],
+      studyRecords: [],
+    })
+  })
+
+  it('加载 canonical v3 数据时不重复写入本地存储', () => {
+    localStorage.setItem(
+      'history-memorization:data',
+      JSON.stringify({
+        version: 3,
+        events: [],
+        cards: [],
+        studyRecords: [],
+      }),
+    )
+    const setItem = vi.spyOn(localStorage, 'setItem')
+
+    useHistoryStore()
+
+    expect(setItem).not.toHaveBeenCalled()
   })
 
   it('resets corrupted local data with a clear error', () => {
@@ -131,7 +217,7 @@ describe('historyStore', () => {
 
     const store = useHistoryStore()
 
-    expect(store.version).toBe(2)
+    expect(store.version).toBe(3)
     expect(store.events).toEqual([])
     expect(store.lastError).toBe('本地数据损坏，已重置为空数据。')
   })

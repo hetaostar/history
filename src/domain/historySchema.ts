@@ -1,18 +1,20 @@
 import type {
   IHistoryData,
   IHistoryEvent,
-  IPerson,
   IStudyCard,
 } from './historyTypes'
+import { TEXTBOOK_PEOPLE } from '../data/textbooks'
 
-export const CURRENT_SCHEMA_VERSION = 2
+export const CURRENT_SCHEMA_VERSION = 3
 
 const LEAKED_FORMAT_KEY_PREFIX_RE =
   /^(?:(?:[a-z][a-z_]*_)?format\.[a-z][a-z_]*\s*)+/i
+const TEXTBOOK_PERSON_IDS = new Set<string>(
+  TEXTBOOK_PEOPLE.map((person) => person.id),
+)
 
 const REQUIRED_COLLECTIONS: Array<keyof Omit<IHistoryData, 'version'>> = [
   'events',
-  'people',
   'cards',
   'studyRecords',
 ]
@@ -21,7 +23,6 @@ export function createEmptyHistoryData(): IHistoryData {
   return {
     version: CURRENT_SCHEMA_VERSION,
     events: [],
-    people: [],
     cards: [],
     studyRecords: [],
   }
@@ -32,7 +33,17 @@ export function parseHistoryData(value: unknown): IHistoryData {
     throw new Error('导入文件格式不正确')
   }
 
-  const version = typeof value.version === 'number' ? value.version : 0
+  const hasExplicitVersion = Object.prototype.hasOwnProperty.call(value, 'version')
+  if (
+    hasExplicitVersion &&
+    (typeof value.version !== 'number' ||
+      !Number.isInteger(value.version) ||
+      value.version <= 0)
+  ) {
+    throw new Error('导入文件格式不正确')
+  }
+
+  const version = hasExplicitVersion ? (value.version as number) : 0
   if (version > CURRENT_SCHEMA_VERSION) {
     throw new Error('导入文件版本过高，请升级应用')
   }
@@ -46,15 +57,16 @@ export function parseHistoryData(value: unknown): IHistoryData {
   if (version < 2 && !Array.isArray(value.timelines)) {
     throw new Error('导入文件格式不正确')
   }
+  if (version < CURRENT_SCHEMA_VERSION && !Array.isArray(value.people)) {
+    throw new Error('导入文件格式不正确')
+  }
 
   const events = value.events as unknown[]
-  const people = value.people as unknown[]
   const cards = value.cards as unknown[]
   const studyRecords = value.studyRecords as unknown[]
 
   if (
     !events.every(isHistoryEvent) ||
-    !people.every(isPerson) ||
     !cards.every(isStudyCard) ||
     !studyRecords.every(isStudyRecord)
   ) {
@@ -64,9 +76,14 @@ export function parseHistoryData(value: unknown): IHistoryData {
   return {
     version: CURRENT_SCHEMA_VERSION,
     events: events.map((event) => normalizeHistoryEvent(event as IHistoryEvent)),
-    people: people.map((person) => normalizePerson(person as IPerson)),
     cards: cards.map((card) => normalizeStudyCard(card as IStudyCard)),
-    studyRecords,
+    studyRecords:
+      version < CURRENT_SCHEMA_VERSION
+        ? studyRecords.filter(
+            (record) =>
+              (record as { targetType: string }).targetType !== 'person',
+          )
+        : studyRecords,
   } as IHistoryData
 }
 
@@ -86,18 +103,9 @@ export function normalizeHistoryEvent(value: IHistoryEvent): IHistoryEvent {
     summary: removeLeakedFormatKeyPrefix(event.summary),
     detail: removeLeakedFormatKeyPrefix(event.detail),
     keywords: event.keywords.map(removeLeakedFormatKeyPrefix),
-  }
-}
-
-export function normalizePerson(value: IPerson): IPerson {
-  return {
-    ...value,
-    name: removeLeakedFormatKeyPrefix(value.name),
-    lifeTime: removeLeakedFormatKeyPrefix(value.lifeTime),
-    summary: removeLeakedFormatKeyPrefix(value.summary),
-    biography: removeLeakedFormatKeyPrefix(value.biography),
-    achievements: removeLeakedFormatKeyPrefix(value.achievements),
-    keywords: value.keywords.map(removeLeakedFormatKeyPrefix),
+    personIds: event.personIds.filter((personId) =>
+      TEXTBOOK_PERSON_IDS.has(personId),
+    ),
   }
 }
 
@@ -110,6 +118,9 @@ export function normalizeStudyCard(value: IStudyCard): IStudyCard {
     back: removeLeakedFormatKeyPrefix(card.back),
     hint: removeLeakedFormatKeyPrefix(card.hint ?? ''),
     keywords: card.keywords.map(removeLeakedFormatKeyPrefix),
+    personIds: card.personIds.filter((personId) =>
+      TEXTBOOK_PERSON_IDS.has(personId),
+    ),
   }
 }
 
@@ -133,21 +144,6 @@ function isHistoryEvent(value: unknown): boolean {
     isString(value.detail) &&
     isStringArray(value.keywords) &&
     isStringArray(value.personIds) &&
-    isString(value.createdAt) &&
-    isString(value.updatedAt)
-  )
-}
-
-function isPerson(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    isString(value.id) &&
-    isString(value.name) &&
-    isString(value.lifeTime) &&
-    isString(value.summary) &&
-    isString(value.biography) &&
-    isString(value.achievements) &&
-    isStringArray(value.keywords) &&
     isString(value.createdAt) &&
     isString(value.updatedAt)
   )

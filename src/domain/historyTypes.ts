@@ -14,18 +14,6 @@ export interface IHistoryEvent {
   updatedAt: string
 }
 
-export interface IPerson {
-  id: string
-  name: string
-  lifeTime: string
-  summary: string
-  biography: string
-  achievements: string
-  keywords: string[]
-  createdAt: string
-  updatedAt: string
-}
-
 export interface IStudyCard {
   id: string
   front: string
@@ -49,7 +37,6 @@ export interface IStudyRecord {
 export interface IHistoryData {
   version: number
   events: IHistoryEvent[]
-  people: IPerson[]
   cards: IStudyCard[]
   studyRecords: IStudyRecord[]
 }

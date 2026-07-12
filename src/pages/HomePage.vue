@@ -2,18 +2,22 @@
 import { computed } from 'vue'
 import TextbookShelf from '@/components/TextbookShelf.vue'
 import { TEXTBOOKS } from '@/data/textbooks'
+import { getAllTextbookPeople } from '@/domain/textbookSelectors'
 import { useHistoryStore } from '@/stores/historyStore'
 
 const store = useHistoryStore()
+const textbookPeopleCount = new Set(
+  getAllTextbookPeople().map((person) => person.id),
+).size
 
 const featureEntries = computed(() => [
   {
     title: '人物',
     route: '/people',
     label: '人物索引',
-    count: store.people.length,
-    copy: '把生平、主张、贡献和关键词收进同一张人物档案。',
-    action: '整理人物',
+    count: textbookPeopleCount,
+    copy: '按教材浏览人物的生平、主张、贡献和关键词。',
+    action: '浏览教材人物',
   },
   {
     title: '事件',
@@ -42,22 +46,7 @@ const featureEntries = computed(() => [
 ])
 
 const totalItems = computed(
-  () =>
-    store.people.length +
-    store.events.length +
-    store.cards.length,
-)
-
-const latestEvents = computed(() =>
-  [...store.events]
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 3),
-)
-
-const latestPeople = computed(() =>
-  [...store.people]
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 3),
+  () => textbookPeopleCount + store.events.length + store.cards.length,
 )
 </script>
 
@@ -82,7 +71,7 @@ const latestPeople = computed(() =>
         <strong>{{ totalItems }}</strong>
         <span>条学习材料</span>
         <div class="slip-grid">
-          <span>{{ store.people.length }} 人物</span>
+          <span>{{ textbookPeopleCount }} 人物</span>
           <span>{{ store.events.length }} 事件</span>
           <span>{{ store.cards.length }} 卡片</span>
         </div>
@@ -104,46 +93,6 @@ const latestPeople = computed(() =>
         <span class="feature-count">{{ entry.count }} 项</span>
         <span class="feature-action">{{ entry.action }}</span>
       </RouterLink>
-    </section>
-
-    <section class="desk-layout">
-      <article class="desk-panel">
-        <div class="section-heading">
-          <span>最近事件</span>
-          <RouterLink to="/events">查看全部事件</RouterLink>
-        </div>
-        <p v-if="latestEvents.length === 0" class="empty-note">
-          还没有事件。先添加一个需要背诵的事件。
-        </p>
-        <ol v-else class="recent-list">
-          <li v-for="event in latestEvents" :key="event.id">
-            <span>{{ event.timeLabel || '未标时间' }}</span>
-            <strong>{{ event.title }}</strong>
-            <p v-if="event.summary">{{ event.summary }}</p>
-          </li>
-        </ol>
-      </article>
-
-      <article class="desk-panel people-panel">
-        <div class="section-heading">
-          <span>人物抽屉</span>
-          <RouterLink to="/people">整理人物</RouterLink>
-        </div>
-        <p v-if="latestPeople.length === 0" class="empty-note">
-          还没有人物。把重要人物的生平、主张和关键词先归档。
-        </p>
-        <div v-else class="person-strip">
-          <RouterLink
-            v-for="person in latestPeople"
-            :key="person.id"
-            class="person-chip"
-            :to="`/people/${person.id}`"
-          >
-            <strong>{{ person.name }}</strong>
-            <span>{{ person.lifeTime || '待补充时间' }}</span>
-          </RouterLink>
-        </div>
-      </article>
     </section>
   </section>
 </template>
@@ -194,8 +143,7 @@ const latestPeople = computed(() =>
 
 .eyebrow,
 .slip-kicker,
-.feature-label,
-.section-heading {
+.feature-label {
   color: var(--cinnabar);
   font-family: var(--font-utility);
   font-size: 12px;
@@ -231,8 +179,7 @@ const latestPeople = computed(() =>
 
 .primary-link,
 .secondary-link,
-.feature-action,
-.section-heading a {
+.feature-action {
   text-decoration: none;
 }
 
@@ -363,92 +310,6 @@ const latestPeople = computed(() =>
   font-weight: 900;
 }
 
-.desk-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-  gap: 18px;
-}
-
-.desk-panel {
-  display: grid;
-  gap: 18px;
-  padding: 24px;
-  background: rgb(255 248 229 / 76%);
-  border: 1px solid rgb(74 50 35 / 14%);
-  border-radius: 28px;
-}
-
-.section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.section-heading a {
-  color: var(--bronze);
-}
-
-.empty-note {
-  margin: 0;
-  color: var(--muted-ink);
-}
-
-.recent-list {
-  display: grid;
-  gap: 12px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.recent-list li {
-  display: grid;
-  gap: 6px;
-  padding: 16px;
-  background: var(--paper);
-  border: 1px solid rgb(74 50 35 / 12%);
-  border-radius: 18px;
-}
-
-.recent-list span {
-  color: var(--cinnabar);
-  font-family: var(--font-utility);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.recent-list strong,
-.person-chip strong {
-  color: var(--ink);
-}
-
-.recent-list p {
-  margin: 0;
-  color: var(--muted-ink);
-}
-
-.person-strip {
-  display: grid;
-  gap: 12px;
-}
-
-.person-chip {
-  display: grid;
-  gap: 4px;
-  padding: 18px;
-  color: inherit;
-  text-decoration: none;
-  background:
-    linear-gradient(90deg, rgb(184 62 44 / 14%), transparent 3px), var(--paper);
-  border: 1px solid rgb(74 50 35 / 12%);
-  border-radius: 18px;
-}
-
-.person-chip span {
-  color: var(--muted-ink);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .feature-card {
     transition: none;
@@ -456,8 +317,7 @@ const latestPeople = computed(() =>
 }
 
 @media (max-width: 920px) {
-  .hero-panel,
-  .desk-layout {
+  .hero-panel {
     grid-template-columns: 1fr;
   }
 

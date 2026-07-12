@@ -24,6 +24,7 @@ pnpm-debug.log*
 # Local tooling and caches
 .agents/
 .superpowers/
+.worktrees/
 .tools/
 .vite/
 .vitest/

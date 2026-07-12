@@ -6,6 +6,7 @@ import { useModalBehavior } from '@/composables/useModalBehavior'
 import EntityCard from '@/components/EntityCard.vue'
 import StudyRevealCard from '@/components/StudyRevealCard.vue'
 import type { IStudyCard, StudyResult } from '@/domain/historyTypes'
+import { getTextbookPersonById } from '@/domain/textbookSelectors'
 import { useHistoryStore } from '@/stores/historyStore'
 
 type DrawRange = 'all' | 'remembered' | 'forgotten' | 'custom'
@@ -134,9 +135,7 @@ const studyingCardRelatedPeople = computed(() => {
   }
 
   return studyingCard.value.personIds.map((personId) => {
-    return (
-      store.people.find((person) => person.id === personId)?.name ?? personId
-    )
+    return getTextbookPersonById(personId)?.name ?? personId
   })
 })
 

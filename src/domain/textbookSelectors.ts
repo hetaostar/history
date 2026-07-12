@@ -58,6 +58,16 @@ export function getTextbookPeople(
   return people.filter((person) => person.textbookIds.includes(textbookId))
 }
 
+export function getAllTextbookPeople(): readonly ITextbookPerson[] {
+  return people
+}
+
+export function getTextbookPersonById(
+  personId: string,
+): ITextbookPerson | undefined {
+  return people.find((person) => person.id === personId)
+}
+
 export function findLessonsByPersonId(
   personId: string,
   textbookId?: string,

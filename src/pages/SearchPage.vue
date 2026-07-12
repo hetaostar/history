@@ -9,6 +9,7 @@ const { value: query, debounced: debouncedQuery } = useDebouncedRef('', 200)
 
 const results = computed(() => store.search(debouncedQuery.value))
 const hasQuery = computed(() => query.value.trim().length > 0)
+const isPending = computed(() => query.value !== debouncedQuery.value)
 const hasResults = computed(() => {
   return (
     results.value.people.length > 0 ||
@@ -37,10 +38,22 @@ const hasResults = computed(() => {
       </label>
     </section>
 
-    <p v-if="!hasQuery" class="empty-message">请输入关键词开始搜索。</p>
+    <p
+      v-if="isPending"
+      class="empty-message"
+      role="status"
+      aria-live="polite"
+    >
+      正在搜索…
+    </p>
+    <p v-else-if="!hasQuery" class="empty-message">请输入关键词开始搜索。</p>
     <p v-else-if="!hasResults" class="empty-message">没有找到匹配结果。</p>
 
-    <section v-if="hasResults" class="result-layout" aria-label="搜索结果">
+    <section
+      v-if="!isPending && hasResults"
+      class="result-layout"
+      aria-label="搜索结果"
+    >
       <section class="result-group">
         <h2>人物</h2>
         <p v-if="results.people.length === 0" class="empty-message">
@@ -50,7 +63,7 @@ const hasResults = computed(() => {
           v-for="person in results.people"
           :key="person.id"
           class="result-card result-link"
-          :to="`/people/${person.id}`"
+          :to="`/people?person=${person.id}`"
         >
           <strong>{{ person.name }}</strong>
           <span v-if="person.lifeTime">{{ person.lifeTime }}</span>
