@@ -23,7 +23,6 @@ const router = useRouter()
 const periodSections = new Map<string, HTMLElement>()
 const activePeriodId = ref<string>(HISTORY_PERIODS[0].id)
 const appHeaderHeight = ref(0)
-let periodObserver: IntersectionObserver | null = null
 let appHeaderObserver: ResizeObserver | null = null
 
 const periodGroups = computed(() => groupHistoricalEventsByPeriod(KEY_EVENTS))
@@ -105,30 +104,28 @@ function selectPeriod(periodId: string): void {
   void scrollToPeriod(periodId, 'smooth')
 }
 
-function observePeriodSections(): void {
-  if (typeof IntersectionObserver === 'undefined') {
-    return
+function getPeriodActivationOffset(): number {
+  return window.matchMedia?.('(max-width: 760px)').matches
+    ? appHeaderHeight.value + 68
+    : 96
+}
+
+function updateActivePeriodFromScroll(): void {
+  const activationOffset = getPeriodActivationOffset()
+  let currentPeriodId: string = HISTORY_PERIODS[0].id
+
+  for (const period of HISTORY_PERIODS) {
+    const section = periodSections.get(period.id)
+    if (!section) {
+      continue
+    }
+    if (section.getBoundingClientRect().top > activationOffset) {
+      break
+    }
+    currentPeriodId = period.id
   }
 
-  periodObserver = new IntersectionObserver(
-    (entries) => {
-      const currentEntry = entries
-        .filter((entry) => entry.isIntersecting)
-        .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0]
-      const periodId = (currentEntry?.target as HTMLElement | undefined)?.dataset
-        .periodId
-
-      if (periodId) {
-        activePeriodId.value = periodId
-      }
-    },
-    {
-      rootMargin: '-96px 0px -60% 0px',
-      threshold: [0, 0.25, 0.5, 0.75, 1],
-    },
-  )
-
-  periodSections.forEach((section) => periodObserver?.observe(section))
+  activePeriodId.value = currentPeriodId
 }
 
 function updateAppHeaderHeight(): void {
@@ -141,6 +138,9 @@ function updateAppHeaderHeight(): void {
 function observeAppHeader(): void {
   updateAppHeaderHeight()
   window.addEventListener('resize', updateAppHeaderHeight)
+  window.addEventListener('scroll', updateActivePeriodFromScroll, {
+    passive: true,
+  })
 
   if (typeof ResizeObserver !== 'undefined') {
     const appHeader = document.querySelector<HTMLElement>('.app-header')
@@ -158,13 +158,12 @@ onMounted(async () => {
   if (initialPeriodId) {
     await scrollToPeriod(initialPeriodId, 'auto', false)
   }
-  observePeriodSections()
 })
 
 onBeforeUnmount(() => {
-  periodObserver?.disconnect()
   appHeaderObserver?.disconnect()
   window.removeEventListener('resize', updateAppHeaderHeight)
+  window.removeEventListener('scroll', updateActivePeriodFromScroll)
 })
 </script>
 

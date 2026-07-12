@@ -8,8 +8,6 @@ import { HISTORY_PERIODS } from '@/domain/historyPeriods'
 import { useHistoryStore } from '@/stores/historyStore'
 import EventListPage from './EventListPage.vue'
 
-let intersectionCallback: IntersectionObserverCallback
-
 async function mountPage(path = '/events') {
   const pinia = createPinia()
   setActivePinia(pinia)
@@ -41,22 +39,6 @@ describe('EventListPage', () => {
       configurable: true,
       value: vi.fn(),
     })
-    vi.stubGlobal(
-      'IntersectionObserver',
-      class {
-        constructor(callback: IntersectionObserverCallback) {
-          intersectionCallback = callback
-        }
-
-        observe = vi.fn()
-        disconnect = vi.fn()
-        unobserve = vi.fn()
-        takeRecords = vi.fn(() => [])
-        root = null
-        rootMargin = ''
-        thresholds = []
-      },
-    )
   })
 
   afterEach(() => {
@@ -139,23 +121,66 @@ describe('EventListPage', () => {
   it('阅读到新时期时同步高亮朝代导航', async () => {
     const { wrapper } = await mountPage()
     await flushPromises()
-    const tangSection = wrapper.get('[data-test="period-section-tang"]').element
+    const tangIndex = HISTORY_PERIODS.findIndex(({ id }) => id === 'tang')
+    wrapper
+      .findAll<HTMLElement>('[data-test^="period-section-"]')
+      .forEach((section, index) => {
+        section.element.getBoundingClientRect = () =>
+          ({
+            top: index < tangIndex ? -320 : index === tangIndex ? 80 : 720,
+          }) as DOMRect
+      })
 
-    intersectionCallback(
-      [
-        {
-          isIntersecting: true,
-          intersectionRatio: 0.75,
-          target: tangSection,
-        } as IntersectionObserverEntry,
-      ],
-      {} as IntersectionObserver,
-    )
+    window.dispatchEvent(new Event('scroll'))
     await wrapper.vm.$nextTick()
 
     expect(
       wrapper
         .get('[data-test="period-navigation-tang"]')
+        .attributes('aria-current'),
+    ).toBe('location')
+  })
+
+  it('按越过阅读线的最后一个时期稳定高亮较长朝代', async () => {
+    const { wrapper } = await mountPage()
+    await flushPromises()
+    const jinIndex = HISTORY_PERIODS.findIndex(
+      ({ id }) => id === 'jin-northern-southern',
+    )
+    const sectionTops = new Map<string, number>(
+      HISTORY_PERIODS.map(({ id }, index) => [
+        id,
+        index < jinIndex ? -420 : index === jinIndex ? 80 : 680,
+      ]),
+    )
+
+    wrapper
+      .findAll<HTMLElement>('[data-test^="period-section-"]')
+      .forEach((section) => {
+        const periodId = section.attributes('data-period-id') ?? ''
+        section.element.getBoundingClientRect = () =>
+          ({
+            top: sectionTops.get(periodId) ?? 900,
+          }) as DOMRect
+      })
+
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+
+    expect(
+      wrapper
+        .get('[data-test="period-navigation-jin-northern-southern"]')
+        .attributes('aria-current'),
+    ).toBe('location')
+
+    sectionTops.set('jin-northern-southern', -180)
+    sectionTops.set('sui', 520)
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+
+    expect(
+      wrapper
+        .get('[data-test="period-navigation-jin-northern-southern"]')
         .attributes('aria-current'),
     ).toBe('location')
   })
