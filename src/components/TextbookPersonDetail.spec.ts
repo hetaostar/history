@@ -15,6 +15,7 @@ const person: ITextbookPerson = {
   lifeTime: '测试时期',
   summary: '用于验证跨册详情。',
   textbookIds: ['book-a', 'book-b'],
+  historyPeriodId: 'han',
 }
 
 function createTextbook(

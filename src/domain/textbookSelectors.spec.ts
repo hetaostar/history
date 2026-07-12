@@ -219,11 +219,20 @@ describe('教材内置数据', () => {
 
   it('人物工厂保留多个教材归属', () => {
     const [person] = createTextbookPeople(
-      [['shared-person', '跨册人物', '测试时期', '用于验证跨册复用。']],
+      [
+        [
+          'shared-person',
+          '跨册人物',
+          '测试时期',
+          '用于验证跨册复用。',
+          'han',
+        ],
+      ],
       ['grade-7-up', 'grade-7-down'],
     )
 
     expect(person.textbookIds).toEqual(['grade-7-up', 'grade-7-down'])
+    expect(person.historyPeriodId).toBe('han')
   })
 })
 

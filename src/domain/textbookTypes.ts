@@ -1,4 +1,9 @@
+import type { HistoryPeriodId } from './historyPeriods'
+
 export type TextbookStatus = 'published' | 'coming-soon'
+export type TextbookPersonHistoryPeriodId =
+  | 'prehistory-legends'
+  | HistoryPeriodId
 
 export interface ITextbook {
   readonly id: string
@@ -37,6 +42,7 @@ export interface ITextbookPerson {
   readonly lifeTime: string
   readonly summary: string
   readonly textbookIds: readonly string[]
+  readonly historyPeriodId: TextbookPersonHistoryPeriodId
 }
 
 export interface ITextbookEventYearRange {

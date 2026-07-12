@@ -74,14 +74,14 @@ describe('router', () => {
 
   it('人物详情改用列表 query 且不再提供独立详情路由', () => {
     const personList = router.resolve(
-      '/people?person=g7u-confucius#textbook-grade-7-up',
+      '/people?person=g7u-confucius#period-spring-autumn',
     )
 
     expect(personList.matched[personList.matched.length - 1]?.path).toBe(
       '/people',
     )
     expect(personList.query.person).toBe('g7u-confucius')
-    expect(personList.hash).toBe('#textbook-grade-7-up')
+    expect(personList.hash).toBe('#period-spring-autumn')
     expect(router.resolve('/people/g7u-confucius').matched).toHaveLength(0)
   })
 })

@@ -77,6 +77,7 @@ const people: readonly ITextbookPerson[] = [
     lifeTime: '测试时期',
     summary: '同时出现在两册。',
     textbookIds: ['book-a', 'book-b'],
+    historyPeriodId: 'han',
   },
   {
     id: 'book-a-only',
@@ -84,6 +85,7 @@ const people: readonly ITextbookPerson[] = [
     lifeTime: '测试时期',
     summary: '只在第一册。',
     textbookIds: ['book-a'],
+    historyPeriodId: 'han',
   },
   {
     id: 'unpublished-only',
@@ -91,6 +93,7 @@ const people: readonly ITextbookPerson[] = [
     lifeTime: '测试时期',
     summary: '只在待出版册。',
     textbookIds: ['book-c'],
+    historyPeriodId: 'han',
   },
 ]
 

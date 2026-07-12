@@ -46,6 +46,8 @@ export const HISTORY_PERIODS = [
   { id: 'qing', name: '清', startYear: 1644, endYear: 1912 },
 ] as const satisfies readonly IHistoryPeriod[]
 
+export type HistoryPeriodId = (typeof HISTORY_PERIODS)[number]['id']
+
 export function groupHistoricalEventsByPeriod(
   events: readonly IHistoricalEvent[],
 ): readonly IHistoryPeriodGroup[] {

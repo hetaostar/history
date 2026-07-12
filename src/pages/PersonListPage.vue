@@ -9,14 +9,18 @@ import {
   type ComponentPublicInstance,
 } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import HistoryPeriodNavigation from '@/components/HistoryPeriodNavigation.vue'
 import TextbookPersonDetail from '@/components/TextbookPersonDetail.vue'
-import TextbookVolumeNavigation from '@/components/TextbookVolumeNavigation.vue'
 import {
   TEXTBOOK_LESSONS,
   TEXTBOOK_PEOPLE,
   TEXTBOOK_UNITS,
   TEXTBOOKS,
 } from '@/data/textbooks'
+import {
+  groupTextbookPeopleByHistoryPeriod,
+  PERSON_HISTORY_PERIODS,
+} from '@/domain/personHistoryPeriods'
 import { buildTextbookPeopleCatalog } from '@/domain/textbookPeopleCatalog'
 
 const route = useRoute()
@@ -27,16 +31,16 @@ const catalog = buildTextbookPeopleCatalog(
   TEXTBOOK_UNITS,
   TEXTBOOK_LESSONS,
 )
-const publishedTextbooks = catalog.groups.map((group) => group.textbook)
-const textbookSections = new Map<string, HTMLElement>()
-const activeTextbookId = ref<string>(publishedTextbooks[0]?.id ?? '')
+const periodGroups = groupTextbookPeopleByHistoryPeriod(catalog)
+const periodSections = new Map<string, HTMLElement>()
+const activePeriodId = ref<string>(PERSON_HISTORY_PERIODS[0].id)
 const appHeaderHeight = ref(0)
 let appHeaderObserver: ResizeObserver | null = null
 
 const selectedPerson = computed(() => {
   const personId = String(route.query.person ?? '')
   return (
-    catalog.groups
+    periodGroups
       .flatMap((group) => group.entries)
       .find((entry) => entry.person.id === personId)?.person ?? null
   )
@@ -55,27 +59,27 @@ function closePersonDetail(): void {
   void router.replace({ query, hash: route.hash })
 }
 
-function setTextbookSectionRef(
-  textbookId: string,
+function setPeriodSectionRef(
+  periodId: string,
   element: Element | ComponentPublicInstance | null,
 ): void {
   if (element instanceof HTMLElement) {
-    textbookSections.set(textbookId, element)
+    periodSections.set(periodId, element)
     return
   }
 
-  textbookSections.delete(textbookId)
+  periodSections.delete(periodId)
 }
 
-function getTextbookIdFromHash(hash: string): string | null {
-  const prefix = '#textbook-'
+function getPeriodIdFromHash(hash: string): string | null {
+  const prefix = '#period-'
   if (!hash.startsWith(prefix)) {
     return null
   }
 
-  const textbookId = hash.slice(prefix.length)
-  return publishedTextbooks.some((textbook) => textbook.id === textbookId)
-    ? textbookId
+  const periodId = hash.slice(prefix.length)
+  return PERSON_HISTORY_PERIODS.some((period) => period.id === periodId)
+    ? periodId
     : null
 }
 
@@ -83,21 +87,21 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 }
 
-async function scrollToTextbook(
-  textbookId: string,
+async function scrollToPeriod(
+  periodId: string,
   behavior: ScrollBehavior,
   updateHash = true,
 ): Promise<void> {
-  const section = textbookSections.get(textbookId)
+  const section = periodSections.get(periodId)
   if (!section) {
     return
   }
 
-  activeTextbookId.value = textbookId
+  activePeriodId.value = periodId
   if (updateHash) {
     await router.replace({
       query: route.query,
-      hash: `#textbook-${textbookId}`,
+      hash: `#period-${periodId}`,
     })
   }
   await nextTick()
@@ -108,32 +112,32 @@ async function scrollToTextbook(
   })
 }
 
-function selectTextbook(textbookId: string): void {
-  void scrollToTextbook(textbookId, 'smooth')
+function selectPeriod(periodId: string): void {
+  void scrollToPeriod(periodId, 'smooth')
 }
 
-function getTextbookActivationOffset(): number {
+function getPeriodActivationOffset(): number {
   return window.matchMedia?.('(max-width: 760px)').matches
     ? appHeaderHeight.value + 68
     : 96
 }
 
-function updateActiveTextbookFromScroll(): void {
-  const activationOffset = getTextbookActivationOffset()
-  let currentTextbookId = publishedTextbooks[0]?.id ?? ''
+function updateActivePeriodFromScroll(): void {
+  const activationOffset = getPeriodActivationOffset()
+  let currentPeriodId = PERSON_HISTORY_PERIODS[0].id
 
-  for (const textbook of publishedTextbooks) {
-    const section = textbookSections.get(textbook.id)
+  for (const period of PERSON_HISTORY_PERIODS) {
+    const section = periodSections.get(period.id)
     if (!section) {
       continue
     }
     if (section.getBoundingClientRect().top > activationOffset) {
       break
     }
-    currentTextbookId = textbook.id
+    currentPeriodId = period.id
   }
 
-  activeTextbookId.value = currentTextbookId
+  activePeriodId.value = currentPeriodId
 }
 
 function updateAppHeaderHeight(): void {
@@ -146,7 +150,7 @@ function updateAppHeaderHeight(): void {
 function observePagePosition(): void {
   updateAppHeaderHeight()
   window.addEventListener('resize', updateAppHeaderHeight)
-  window.addEventListener('scroll', updateActiveTextbookFromScroll, {
+  window.addEventListener('scroll', updateActivePeriodFromScroll, {
     passive: true,
   })
 
@@ -162,28 +166,28 @@ function observePagePosition(): void {
 watch(
   () => route.hash,
   async (hash) => {
-    const textbookId = getTextbookIdFromHash(hash)
-    if (!textbookId || textbookId === activeTextbookId.value) {
+    const periodId = getPeriodIdFromHash(hash)
+    if (!periodId || periodId === activePeriodId.value) {
       return
     }
 
-    await scrollToTextbook(textbookId, 'auto', false)
+    await scrollToPeriod(periodId, 'auto', false)
   },
 )
 
 onMounted(async () => {
   await nextTick()
   observePagePosition()
-  const initialTextbookId = getTextbookIdFromHash(route.hash)
-  if (initialTextbookId) {
-    await scrollToTextbook(initialTextbookId, 'auto', false)
+  const initialPeriodId = getPeriodIdFromHash(route.hash)
+  if (initialPeriodId) {
+    await scrollToPeriod(initialPeriodId, 'auto', false)
   }
 })
 
 onBeforeUnmount(() => {
   appHeaderObserver?.disconnect()
   window.removeEventListener('resize', updateAppHeaderHeight)
-  window.removeEventListener('scroll', updateActiveTextbookFromScroll)
+  window.removeEventListener('scroll', updateActivePeriodFromScroll)
 })
 </script>
 
@@ -196,7 +200,7 @@ onBeforeUnmount(() => {
       <p class="eyebrow">Textbook people archive</p>
       <h1>教材人物</h1>
       <p class="page-intro">
-        按教材册次浏览历史人物，结合人物线索与所在课程建立知识联系。
+        按朝代浏览历史人物，结合人物线索与所在课程建立知识联系。
       </p>
     </header>
 
@@ -208,36 +212,37 @@ onBeforeUnmount(() => {
           </p>
           <h2 id="person-catalog-title">教材人物卡片</h2>
         </div>
-        <span class="volume-count">{{ catalog.groups.length }} 册已出版</span>
+        <span class="period-total">
+          {{ PERSON_HISTORY_PERIODS.length }} 个历史时期
+        </span>
       </div>
 
       <div class="catalog-layout">
-        <div class="textbook-groups">
+        <div class="period-groups">
           <section
-            v-for="group in catalog.groups"
-            :id="`textbook-${group.textbook.id}`"
-            :key="group.textbook.id"
+            v-for="group in periodGroups"
+            :id="`period-${group.period.id}`"
+            :key="group.period.id"
             :ref="
-              (element) => setTextbookSectionRef(group.textbook.id, element)
+              (element) => setPeriodSectionRef(group.period.id, element)
             "
-            class="textbook-section"
-            :data-test="`textbook-section-${group.textbook.id}`"
-            :aria-labelledby="`textbook-title-${group.textbook.id}`"
+            class="period-section"
+            :data-test="`period-section-${group.period.id}`"
+            :aria-labelledby="`period-title-${group.period.id}`"
           >
-            <header class="textbook-heading">
+            <header class="period-heading">
               <div>
-                <p class="textbook-edition">
-                  {{ group.textbook.edition }} ·
-                  {{ group.textbook.revisionYear }}
+                <p class="period-range">
+                  {{ group.period.rangeLabel }}
                 </p>
-                <h3 :id="`textbook-title-${group.textbook.id}`">
-                  {{ group.textbook.title }}
+                <h3 :id="`period-title-${group.period.id}`">
+                  {{ group.period.name }}
                 </h3>
               </div>
-              <span class="person-count">{{ group.entries.length }} 位</span>
+              <span class="period-count">{{ group.entries.length }} 位</span>
             </header>
 
-            <div class="person-grid">
+            <div v-if="group.entries.length" class="person-grid">
               <article
                 v-for="entry in group.entries"
                 :key="entry.person.id"
@@ -255,25 +260,31 @@ onBeforeUnmount(() => {
                   <strong>{{ entry.person.name }}</strong>
                   <span class="person-summary">{{ entry.person.summary }}</span>
                 </button>
-                <RouterLink
-                  v-for="lesson in entry.lessons"
-                  :key="lesson.id"
-                  class="lesson-link"
-                  :data-test="`person-lesson-${lesson.id}`"
-                  :to="`/textbooks/${group.textbook.id}/lessons/${lesson.id}`"
+                <template
+                  v-for="membership in entry.memberships"
+                  :key="membership.textbook.id"
                 >
-                  第{{ lesson.lessonNumber }}课 {{ lesson.title }}
-                </RouterLink>
+                  <RouterLink
+                    v-for="lesson in membership.lessons"
+                    :key="lesson.id"
+                    class="lesson-link"
+                    :data-test="`person-lesson-${lesson.id}`"
+                    :to="`/textbooks/${membership.textbook.id}/lessons/${lesson.id}`"
+                  >
+                    第{{ lesson.lessonNumber }}课 {{ lesson.title }}
+                  </RouterLink>
+                </template>
               </article>
             </div>
+            <p v-else class="period-empty">暂无收录人物</p>
           </section>
         </div>
 
-        <aside class="textbook-navigation-column">
-          <TextbookVolumeNavigation
-            :textbooks="publishedTextbooks"
-            :active-textbook-id="activeTextbookId"
-            @select="selectTextbook"
+        <aside class="period-navigation-column">
+          <HistoryPeriodNavigation
+            :periods="PERSON_HISTORY_PERIODS"
+            :active-period-id="activePeriodId"
+            @select="selectPeriod"
           />
         </aside>
       </div>
@@ -303,7 +314,7 @@ onBeforeUnmount(() => {
 
 .eyebrow,
 .catalog-meta,
-.volume-count {
+.period-total {
   color: var(--cinnabar);
   font-family: var(--font-utility);
   font-size: 12px;
@@ -359,7 +370,7 @@ onBeforeUnmount(() => {
   line-height: 1.1;
 }
 
-.volume-count {
+.period-total {
   flex: 0 0 auto;
   color: var(--bronze);
   letter-spacing: 0.06em;
@@ -372,20 +383,20 @@ onBeforeUnmount(() => {
   align-items: start;
 }
 
-.textbook-groups {
+.period-groups {
   display: grid;
   gap: clamp(42px, 7vw, 68px);
   min-width: 0;
 }
 
-.textbook-section {
+.period-section {
   display: grid;
   gap: 20px;
   min-width: 0;
   scroll-margin-top: 108px;
 }
 
-.textbook-heading {
+.period-heading {
   position: relative;
   display: flex;
   gap: 18px;
@@ -394,7 +405,7 @@ onBeforeUnmount(() => {
   padding-top: 22px;
 }
 
-.textbook-heading::before {
+.period-heading::before {
   position: absolute;
   top: 0;
   right: 0;
@@ -408,7 +419,7 @@ onBeforeUnmount(() => {
   );
 }
 
-.textbook-heading::after {
+.period-heading::after {
   position: absolute;
   top: -3px;
   left: 0;
@@ -419,15 +430,15 @@ onBeforeUnmount(() => {
   border-radius: 50%;
 }
 
-.textbook-heading h3 {
+.period-heading h3 {
   margin: 4px 0 0;
   font-family: var(--font-display);
   font-size: clamp(26px, 4vw, 38px);
   line-height: 1.1;
 }
 
-.textbook-edition,
-.person-count {
+.period-range,
+.period-count {
   color: var(--bronze);
   font-family: var(--font-utility);
   font-size: 11px;
@@ -435,16 +446,16 @@ onBeforeUnmount(() => {
   letter-spacing: 0.06em;
 }
 
-.textbook-edition {
+.period-range {
   margin: 0;
 }
 
-.person-count {
+.period-count {
   flex: 0 0 auto;
   padding-bottom: 4px;
 }
 
-.textbook-navigation-column {
+.period-navigation-column {
   position: sticky;
   top: 92px;
   min-width: 0;
@@ -454,6 +465,16 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
+}
+
+.period-empty {
+  padding: 22px;
+  margin: 0;
+  color: var(--muted-ink);
+  text-align: center;
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--muted-ink) 24%, transparent);
+  border-radius: 14px;
 }
 
 .person-card {
@@ -541,14 +562,14 @@ onBeforeUnmount(() => {
     flex-direction: column;
   }
 
-  .textbook-navigation-column {
+  .period-navigation-column {
     top: var(--app-header-height);
     z-index: 9;
     order: -1;
     width: 100%;
   }
 
-  .textbook-section {
+  .period-section {
     scroll-margin-top: calc(var(--app-header-height) + 68px);
   }
 }

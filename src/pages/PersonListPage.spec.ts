@@ -2,7 +2,8 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { TEXTBOOK_LESSONS, TEXTBOOK_PEOPLE, TEXTBOOKS } from '@/data/textbooks'
+import { TEXTBOOK_LESSONS, TEXTBOOK_PEOPLE } from '@/data/textbooks'
+import { PERSON_HISTORY_PERIODS } from '@/domain/personHistoryPeriods'
 import PersonListPage from './PersonListPage.vue'
 
 async function mountPage(path = '/people') {
@@ -59,17 +60,15 @@ describe('PersonListPage', () => {
     expect(wrapper.findAll('[data-test^="person-card-"]')).toHaveLength(85)
   })
 
-  it('只按已出版教材分组并展示当前册课程', async () => {
+  it('按历史时期唯一分组并保留人物的教材课程链接', async () => {
     const { wrapper } = await mountPage()
-    const publishedTextbooks = TEXTBOOKS.filter(
-      (textbook) => textbook.status === 'published',
-    )
-    const sections = wrapper.findAll('[data-test^="textbook-section-"]')
+    const sections = wrapper.findAll('[data-test^="period-section-"]')
 
-    expect(sections).toHaveLength(publishedTextbooks.length)
+    expect(sections).toHaveLength(PERSON_HISTORY_PERIODS.length)
     expect(sections.map((section) => section.get('h3').text())).toEqual(
-      publishedTextbooks.map((textbook) => textbook.title),
+      PERSON_HISTORY_PERIODS.map((period) => period.name),
     )
+    expect(wrapper.findAll('[data-test^="person-card-"]')).toHaveLength(85)
 
     const confuciusCard = wrapper.get('[data-test="person-card-g7u-confucius"]')
     expect(confuciusCard.text()).toContain('孔子')
@@ -81,6 +80,8 @@ describe('PersonListPage', () => {
         'href',
       ),
     ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-07')
+    expect(wrapper.text()).toContain('朝代索引')
+    expect(wrapper.text()).not.toContain('教材索引')
   })
 
   it('人物详情按钮与课程链接为兄弟交互元素', async () => {
@@ -108,14 +109,14 @@ describe('PersonListPage', () => {
   it('通过 person query 打开详情并安全处理未知人物', async () => {
     const person = TEXTBOOK_PEOPLE[0]
     const { router, wrapper } = await mountPage(
-      `/people?person=${person.id}#textbook-grade-7-up`,
+      `/people?person=${person.id}#period-prehistory-legends`,
     )
 
     expect(wrapper.get('[data-test="textbook-person-detail"]').text()).toContain(
       person.name,
     )
 
-    await router.replace('/people?person=missing#textbook-grade-7-up')
+    await router.replace('/people?person=missing#period-prehistory-legends')
     await flushPromises()
 
     expect(wrapper.find('[data-test="textbook-person-detail"]').exists()).toBe(
@@ -127,7 +128,7 @@ describe('PersonListPage', () => {
   it('点击人物按钮写入 query，关闭只移除 person 并保留其他 query/hash', async () => {
     const person = TEXTBOOK_PEOPLE[0]
     const { router, wrapper } = await mountPage(
-      '/people?mode=review#textbook-grade-7-up',
+      '/people?mode=review#period-prehistory-legends',
     )
 
     await wrapper.get(`[data-test="open-person-${person.id}"]`).trigger('click')
@@ -137,18 +138,18 @@ describe('PersonListPage', () => {
       mode: 'review',
       person: person.id,
     })
-    expect(router.currentRoute.value.hash).toBe('#textbook-grade-7-up')
+    expect(router.currentRoute.value.hash).toBe('#period-prehistory-legends')
 
     await wrapper.get('[data-test="close-person-detail"]').trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.query).toEqual({ mode: 'review' })
-    expect(router.currentRoute.value.hash).toBe('#textbook-grade-7-up')
+    expect(router.currentRoute.value.hash).toBe('#period-prehistory-legends')
   })
 
   it('键盘激活课程链接不会打开人物详情', async () => {
     const { router, wrapper } = await mountPage(
-      '/people#textbook-grade-7-up',
+      '/people#period-spring-autumn',
     )
     const lesson = TEXTBOOK_LESSONS.find((item) =>
       (item.personIds as readonly string[]).includes('g7u-confucius'),
@@ -168,22 +169,20 @@ describe('PersonListPage', () => {
     )
   })
 
-  it('点击册次导航更新 hash 并平滑滚动到对应分组', async () => {
+  it('点击朝代导航更新 hash 并平滑滚动到对应分组', async () => {
     const { router, wrapper } = await mountPage()
-    const section = wrapper.get(
-      '[data-test="textbook-section-grade-7-down"]',
-    )
+    const section = wrapper.get('[data-test="period-section-tang"]')
     Object.defineProperty(section.element, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),
     })
 
     await wrapper
-      .get('[data-textbook-id="grade-7-down"]')
+      .get('[data-test="period-navigation-tang"]')
       .trigger('click')
     await flushPromises()
 
-    expect(router.currentRoute.value.hash).toBe('#textbook-grade-7-down')
+    expect(router.currentRoute.value.hash).toBe('#period-tang')
     expect(section.element.scrollIntoView).toHaveBeenCalledWith({
       behavior: 'smooth',
       block: 'start',
@@ -193,18 +192,16 @@ describe('PersonListPage', () => {
 
   it('运行期切换到有效 hash 时定位对应分组并更新高亮', async () => {
     const { router, wrapper } = await mountPage(
-      '/people#textbook-grade-7-up',
+      '/people#period-prehistory-legends',
     )
     await flushPromises()
-    const section = wrapper.get(
-      '[data-test="textbook-section-grade-7-down"]',
-    )
+    const section = wrapper.get('[data-test="period-section-tang"]')
     Object.defineProperty(section.element, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),
     })
 
-    await router.replace('/people#textbook-grade-7-down')
+    await router.replace('/people#period-tang')
     await flushPromises()
 
     expect(section.element.scrollIntoView).toHaveBeenCalledWith({
@@ -213,29 +210,29 @@ describe('PersonListPage', () => {
     })
     expect(
       wrapper
-        .get('[data-textbook-id="grade-7-down"]')
+        .get('[data-test="period-navigation-tang"]')
         .attributes('aria-current'),
     ).toBe('location')
   })
 
   it('运行期无效 hash 不改变高亮或触发滚动', async () => {
     const { router, wrapper } = await mountPage(
-      '/people#textbook-grade-7-up',
+      '/people#period-prehistory-legends',
     )
     await flushPromises()
     const sections = wrapper.findAll<HTMLElement>(
-      '[data-test^="textbook-section-"]',
+      '[data-test^="period-section-"]',
     )
     sections.forEach((section) => {
       vi.mocked(section.element.scrollIntoView).mockClear()
     })
 
-    await router.replace('/people#textbook-missing')
+    await router.replace('/people#period-missing')
     await flushPromises()
 
     expect(
       wrapper
-        .get('[data-textbook-id="grade-7-up"]')
+        .get('[data-test="period-navigation-prehistory-legends"]')
         .attributes('aria-current'),
     ).toBe('location')
     expect(
@@ -245,26 +242,30 @@ describe('PersonListPage', () => {
     ).toBe(false)
   })
 
-  it('首次进入 hash 册次时定位并尊重减少动态效果', async () => {
+  it('减少动态效果时点击朝代导航使用即时滚动', async () => {
     vi.mocked(window.matchMedia).mockImplementation(
       (query) => ({ matches: query.includes('prefers-reduced-motion') }) as MediaQueryList,
     )
 
-    const { wrapper } = await mountPage(
-      '/people#textbook-grade-7-down',
-    )
+    const { wrapper } = await mountPage()
+    const section = wrapper.get('[data-test="period-section-tang"]')
+    Object.defineProperty(section.element, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    })
+
+    await wrapper
+      .get('[data-test="period-navigation-tang"]')
+      .trigger('click')
     await flushPromises()
 
-    expect(
-      wrapper.get('[data-test="textbook-section-grade-7-down"]').element
-        .scrollIntoView,
-    ).toHaveBeenCalledWith({
+    expect(section.element.scrollIntoView).toHaveBeenCalledWith({
       behavior: 'auto',
       block: 'start',
     })
   })
 
-  it('滚动时按 header offset 高亮当前册次', async () => {
+  it('滚动时按 header offset 高亮当前朝代', async () => {
     const appHeader = document.createElement('header')
     appHeader.className = 'app-header'
     appHeader.getBoundingClientRect = () => ({ height: 120 }) as DOMRect
@@ -275,19 +276,22 @@ describe('PersonListPage', () => {
     const { wrapper } = await mountPage()
     await flushPromises()
     const sections = wrapper.findAll<HTMLElement>(
-      '[data-test^="textbook-section-"]',
+      '[data-test^="period-section-"]',
     )
-    sections[0].element.getBoundingClientRect = () =>
-      ({ top: -100 }) as DOMRect
-    sections[1].element.getBoundingClientRect = () =>
-      ({ top: 160 }) as DOMRect
+    const tangIndex = PERSON_HISTORY_PERIODS.findIndex(
+      (period) => period.id === 'tang',
+    )
+    sections.forEach((section, index) => {
+      section.element.getBoundingClientRect = () =>
+        ({ top: index <= tangIndex ? -100 : 300 }) as DOMRect
+    })
 
     window.dispatchEvent(new Event('scroll'))
     await wrapper.vm.$nextTick()
 
     expect(
       wrapper
-        .get('[data-textbook-id="grade-7-down"]')
+        .get('[data-test="period-navigation-tang"]')
         .attributes('aria-current'),
     ).toBe('location')
     expect(wrapper.get('.person-page').attributes('style')).toContain(
