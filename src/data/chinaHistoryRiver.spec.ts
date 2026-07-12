@@ -17,8 +17,13 @@ const REQUIRED_DYNASTY_TEXT_FIELDS = [
 
 describe('chinaHistoryRiver', () => {
   it('完整迁移源文件的数据规模', () => {
-    expect(DYNASTIES).toHaveLength(54)
-    expect(KEY_EVENTS).toHaveLength(272)
+    expect(DYNASTIES).toHaveLength(52)
+    expect(KEY_EVENTS).toHaveLength(241)
+    expect(DYNASTIES.map((dynasty) => dynasty.chineseName)).not.toEqual(
+      expect.arrayContaining(['中华民国', '中华人民共和国']),
+    )
+    expect(Math.max(...DYNASTIES.map((dynasty) => dynasty.endYear))).toBe(1912)
+    expect(Math.max(...KEY_EVENTS.map((event) => event.year))).toBeLessThan(1912)
   })
 
   it('为每个事件提供唯一且不依赖标题的显式 ID', () => {
@@ -30,7 +35,7 @@ describe('chinaHistoryRiver', () => {
     })
   })
 
-  it('固定关键事件 ID，覆盖公元前、1949 年和同年多事件', () => {
+  it('固定关键事件 ID，覆盖公元前和同年多事件', () => {
     const eventByTitle = Object.fromEntries(
       KEY_EVENTS.map((event) => [event.title, event]),
     )
@@ -46,10 +51,6 @@ describe('chinaHistoryRiver', () => {
     expect(eventByTitle['秦始皇统一六国']).toMatchObject({
       id: 'china-event-0029',
       year: -221,
-    })
-    expect(eventByTitle['新中国成立']).toMatchObject({
-      id: 'china-event-0246',
-      year: 1949,
     })
     expect(eventByTitle['《尼布楚条约》签订']).toMatchObject({
       id: 'china-event-0267',
@@ -90,7 +91,7 @@ describe('chinaHistoryRiver', () => {
       expect(Number.isFinite(event.year)).toBe(true)
       expect(Number.isInteger(event.year)).toBe(true)
       expect(event.year).toBeGreaterThanOrEqual(-2500)
-      expect(event.year).toBeLessThanOrEqual(2025)
+      expect(event.year).toBeLessThan(1912)
     })
   })
 
@@ -139,14 +140,14 @@ describe('chinaHistoryRiver', () => {
   })
 
   it('为全部内置事件提供非空的本地静态说明', () => {
-    expect(KEY_EVENTS).toHaveLength(272)
+    expect(KEY_EVENTS).toHaveLength(241)
 
     KEY_EVENTS.forEach((event) => {
       expect(event.description.trim()).not.toBe('')
     })
   })
 
-  it('生成确定性的公元前、并立时期、1949 年和无朝代说明', () => {
+  it('生成确定性的公元前、并立时期和无朝代说明', () => {
     const eventByTitle = Object.fromEntries(
       KEY_EVENTS.map((event) => [event.title, event]),
     )
@@ -157,10 +158,6 @@ describe('chinaHistoryRiver', () => {
     expect(eventByTitle['夷陵之战'].description).toBe(
       '222年，夷陵之战。这是一项处于魏、蜀、吴等政权并立阶段的战争事件。',
     )
-    expect(eventByTitle['新中国成立'].description).toBe(
-      '1949年，新中国成立。这是一项发生于中华人民共和国时期的政治事件。',
-    )
-
     const modernEvent: IHistoricalEvent = {
       id: 'modern-event',
       year: 2026,

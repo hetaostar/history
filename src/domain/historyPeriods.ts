@@ -44,18 +44,6 @@ export const HISTORY_PERIODS = [
   { id: 'yuan', name: '元', startYear: 1279, endYear: 1368 },
   { id: 'ming', name: '明', startYear: 1368, endYear: 1644 },
   { id: 'qing', name: '清', startYear: 1644, endYear: 1912 },
-  {
-    id: 'republic-of-china',
-    name: '中华民国',
-    startYear: 1912,
-    endYear: 1949,
-  },
-  {
-    id: 'peoples-republic-of-china',
-    name: '中华人民共和国',
-    startYear: 1949,
-    endYear: 2026,
-  },
 ] as const satisfies readonly IHistoryPeriod[]
 
 export function groupHistoricalEventsByPeriod(

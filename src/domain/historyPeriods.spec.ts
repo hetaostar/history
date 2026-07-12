@@ -25,9 +25,10 @@ describe('historyPeriods', () => {
       '元',
       '明',
       '清',
-      '中华民国',
-      '中华人民共和国',
     ])
+    expect(Math.max(...HISTORY_PERIODS.map((period) => period.endYear))).toBe(
+      1912,
+    )
 
     HISTORY_PERIODS.slice(1).forEach((period, index) => {
       expect(period.startYear).toBe(HISTORY_PERIODS[index].endYear)
