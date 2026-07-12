@@ -15,6 +15,7 @@ function createTestRouter() {
       { path: '/events', component: { template: '<div />' } },
       { path: '/cards', component: { template: '<div />' } },
       { path: '/search', component: { template: '<div />' } },
+      { path: '/textbooks/:textbookId', component: { template: '<div />' } },
     ],
   })
 }
@@ -101,5 +102,37 @@ describe('HomePage', () => {
     expect(hrefs).toContain('/events')
     expect(hrefs).toContain('/cards')
     expect(hrefs).toContain('/search')
+  })
+
+  it('在原有四项功能前展示六册教材书架并区分出版状态', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createTestRouter()
+    await router.push('/')
+    await router.isReady()
+
+    const wrapper = mount(HomePage, {
+      global: { plugins: [pinia, router] },
+    })
+
+    const shelf = wrapper.get('[aria-labelledby="textbook-shelf-title"]')
+    expect(shelf.text()).toContain('初中历史教材')
+    expect(shelf.findAll('.textbook-spine')).toHaveLength(6)
+    expect(
+      shelf.findAll('.textbook-spine-link').map((link) => link.attributes('href')),
+    ).toEqual(['/textbooks/grade-7-up', '/textbooks/grade-7-down'])
+    const comingSoonSpines = shelf.findAll('.textbook-spine-coming-soon')
+    expect(comingSoonSpines).toHaveLength(4)
+    expect(
+      comingSoonSpines.every(
+        (spine) =>
+          spine.attributes('aria-disabled') === 'true' &&
+          spine.find('a').exists() === false,
+      ),
+    ).toBe(true)
+    expect(shelf.text()).toContain('七上')
+    expect(shelf.text()).toContain('九下')
+    expect(shelf.text().match(/待出版/g)).toHaveLength(4)
+    expect(wrapper.findAll('.feature-card')).toHaveLength(4)
   })
 })

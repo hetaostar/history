@@ -168,6 +168,109 @@ describe('ChinaRiverCanvas', () => {
     wrapper.unmount()
   })
 
+  it('按教材自定义年份范围显示事件并换算中心年份', async () => {
+    const customEvents: IHistoricalEvent[] = [
+      {
+        id: 'custom-visible',
+        year: 750,
+        title: '范围内事件',
+        type: 'politics',
+        importance: 1,
+      },
+      {
+        id: 'custom-hidden',
+        year: 1200,
+        title: '范围外事件',
+        type: 'politics',
+        importance: 1,
+      },
+    ]
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1000,
+        height: 640,
+        dynasties,
+        events: customEvents,
+        startYear: 500,
+        endYear: 1000,
+        initialCenterYear: 750,
+        initialZoom: 0.125,
+      },
+    })
+
+    expect(
+      wrapper.find('[data-test="river-event-custom-visible"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.find('[data-test="river-event-custom-hidden"]').exists(),
+    ).toBe(false)
+    expect(
+      getScale(wrapper.get('.river-world').attributes('transform')),
+    ).toBeCloseTo(0.125)
+
+    wrapper.element.dispatchEvent(
+      new PointerEvent('pointermove', {
+        clientX: 500,
+        clientY: 240,
+        bubbles: true,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+
+    expect(wrapper.get('[data-test="hover-year-badge"]').text()).toContain(
+      '750年',
+    )
+    wrapper.unmount()
+  })
+
+  it('年份配置变化时重置视口并安全处理异常范围', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties,
+        events,
+        startYear: 0,
+        endYear: 1000,
+        initialCenterYear: 500,
+        initialZoom: 0.2,
+      },
+    })
+
+    await wrapper.setProps({
+      startYear: 1200,
+      endYear: 2000,
+      initialCenterYear: 1600,
+      initialZoom: 0.125,
+    })
+    await nextTick()
+    flushAnimationFrames()
+    await nextTick()
+
+    expect(
+      getScale(wrapper.get('.river-world').attributes('transform')),
+    ).toBeCloseTo(0.125)
+
+    await wrapper.setProps({
+      startYear: -1_000_000,
+      endYear: 1_000_000,
+      initialCenterYear: Number.POSITIVE_INFINITY,
+      initialZoom: Number.NaN,
+    })
+    await nextTick()
+    flushAnimationFrames()
+    await nextTick()
+
+    expect(wrapper.find('svg').exists()).toBe(true)
+    expect(
+      Number.isFinite(
+        getScale(wrapper.get('.river-world').attributes('transform')),
+      ),
+    ).toBe(true)
+    wrapper.unmount()
+  })
+
   it('完整数据初始视图保持有限节点且事件卡片互不重叠', () => {
     const wrapper = mount(ChinaRiverCanvas, {
       props: {

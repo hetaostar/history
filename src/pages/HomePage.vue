@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import TextbookShelf from '@/components/TextbookShelf.vue'
+import { TEXTBOOKS } from '@/data/textbooks'
 import { useHistoryStore } from '@/stores/historyStore'
 
 const store = useHistoryStore()
@@ -86,6 +88,8 @@ const latestPeople = computed(() =>
         </div>
       </aside>
     </section>
+
+    <TextbookShelf :textbooks="TEXTBOOKS" />
 
     <section class="feature-rail" aria-label="核心功能">
       <RouterLink

@@ -51,6 +51,32 @@ describe('RiverEventDetail', () => {
     wrapper.unmount()
   })
 
+  it('只读模式无需安装 Pinia 且不暴露任何学习记录界面', async () => {
+    setActivePinia(undefined)
+
+    const wrapper = mount(RiverEventDetail, {
+      attachTo: document.body,
+      props: {
+        event: completeEvent,
+        readOnly: true,
+      },
+    })
+
+    expect(wrapper.get('h2').text()).toBe(completeEvent.title)
+    expect(wrapper.get('[data-test="event-year"]').text()).toBe('公元前221年')
+    expect(wrapper.get('[data-test="event-type"]').text()).toBe('政治')
+    expect(wrapper.get('[data-test="event-description"]').text()).toBe(
+      completeEvent.description,
+    )
+    expect(wrapper.find('[data-test="study-status"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="remembered"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="forgotten"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="close"]').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it.each([
     ['war', '战争'],
     ['culture', '文化'],

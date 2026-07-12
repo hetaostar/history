@@ -8,6 +8,14 @@ export const router = createRouter({
       component: () => import('@/pages/HomePage.vue'),
     },
     {
+      path: '/textbooks/:textbookId',
+      component: () => import('@/pages/TextbookPage.vue'),
+    },
+    {
+      path: '/textbooks/:textbookId/lessons/:lessonId',
+      component: () => import('@/pages/TextbookLessonPage.vue'),
+    },
+    {
       path: '/events',
       component: () => import('@/pages/EventListPage.vue'),
     },
