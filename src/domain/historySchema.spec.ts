@@ -130,7 +130,12 @@ describe('historySchema', () => {
   it('迁移时删除指向不存在卡片的学习记录', () => {
     const parsed = parseHistoryData({
       version: 4,
-      cards: [],
+      cards: [
+        createCard({
+          personIds: ['g7u-confucius', 'missing-person'],
+          eventIds: ['china-event-0029', 'missing-event'],
+        }),
+      ],
       studyRecords: [
         {
           id: 'orphan-card-record',
@@ -139,9 +144,18 @@ describe('historySchema', () => {
           result: 'remembered',
           createdAt: timestamp,
         },
+        {
+          id: 'orphan-event-record',
+          targetType: 'event',
+          targetId: 'missing-event',
+          result: 'remembered',
+          createdAt: timestamp,
+        },
       ],
     })
 
+    expect(parsed.cards[0].personIds).toEqual(['g7u-confucius'])
+    expect(parsed.cards[0].eventIds).toEqual(['china-event-0029'])
     expect(parsed.studyRecords).toEqual([])
   })
 

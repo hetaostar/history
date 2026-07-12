@@ -18,9 +18,9 @@ const featureEntries = computed(() => [
   {
     title: '人物',
     route: '/people',
-    label: '教材人物',
+    label: '人物索引',
     count: textbookPeopleCount,
-    copy: '浏览教材收录人物的生平、主张、贡献和关键词。',
+    copy: '按教材浏览人物的生平、主张、贡献和关键词。',
     action: '浏览教材人物',
   },
   {

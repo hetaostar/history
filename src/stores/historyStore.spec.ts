@@ -93,6 +93,52 @@ describe('historyStore', () => {
     expect(persisted).not.toHaveProperty('events')
   })
 
+  it('加载同版本非 canonical 数据时立即规范化并回写', () => {
+    localStorage.setItem(
+      'history-memorization:data',
+      JSON.stringify({
+        version: 4,
+        cards: [
+          {
+            id: 'card-1',
+            front: '问题',
+            back: '答案',
+            hint: '',
+            keywords: [],
+            personIds: ['g7u-confucius', 'missing-person'],
+            eventIds: ['china-event-0029', 'missing-event'],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        ],
+        studyRecords: [],
+      }),
+    )
+    const setItem = vi.spyOn(localStorage, 'setItem')
+
+    const store = useHistoryStore()
+
+    expect(store.cards[0].personIds).toEqual(['g7u-confucius'])
+    expect(store.cards[0].eventIds).toEqual(['china-event-0029'])
+    expect(setItem).toHaveBeenCalledTimes(1)
+  })
+
+  it('加载 canonical v4 数据时不重复写入本地存储', () => {
+    localStorage.setItem(
+      'history-memorization:data',
+      JSON.stringify({
+        version: 4,
+        cards: [],
+        studyRecords: [],
+      }),
+    )
+    const setItem = vi.spyOn(localStorage, 'setItem')
+
+    useHistoryStore()
+
+    expect(setItem).not.toHaveBeenCalled()
+  })
+
   it('只记录现存卡片和教材事件的学习结果', () => {
     const store = useHistoryStore()
     const card = store.createCard({

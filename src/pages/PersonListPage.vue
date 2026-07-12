@@ -5,6 +5,7 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  watch,
   type ComponentPublicInstance,
 } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -16,36 +17,34 @@ import {
   TEXTBOOK_UNITS,
   TEXTBOOKS,
 } from '@/data/textbooks'
-import { buildPublishedTextbookPeopleCatalog } from '@/domain/textbookPeopleCatalog'
-import { getTextbookPersonById } from '@/domain/textbookSelectors'
-import type { ITextbookPerson } from '@/domain/textbookTypes'
+import { buildTextbookPeopleCatalog } from '@/domain/textbookPeopleCatalog'
 
 const route = useRoute()
 const router = useRouter()
-const textbookSections = new Map<string, HTMLElement>()
-const publishedTextbooks = TEXTBOOKS.filter(
-  (textbook) => textbook.status === 'published',
-)
-const peopleCatalog = buildPublishedTextbookPeopleCatalog(
+const catalog = buildTextbookPeopleCatalog(
   TEXTBOOKS,
   TEXTBOOK_PEOPLE,
   TEXTBOOK_UNITS,
   TEXTBOOK_LESSONS,
 )
+const publishedTextbooks = catalog.groups.map((group) => group.textbook)
+const textbookSections = new Map<string, HTMLElement>()
 const activeTextbookId = ref<string>(publishedTextbooks[0]?.id ?? '')
 const appHeaderHeight = ref(0)
 let appHeaderObserver: ResizeObserver | null = null
 
-const textbookGroups = peopleCatalog.groups
-const uniquePersonCount = peopleCatalog.uniquePersonCount
+const selectedPerson = computed(() => {
+  const personId = String(route.query.person ?? '')
+  return (
+    catalog.groups
+      .flatMap((group) => group.entries)
+      .find((entry) => entry.person.id === personId)?.person ?? null
+  )
+})
 
-const selectedPerson = computed(
-  () => getTextbookPersonById(String(route.query.person ?? '')) ?? null,
-)
-
-function openPerson(person: ITextbookPerson): void {
+function openPersonDetail(personId: string): void {
   void router.replace({
-    query: { ...route.query, person: person.id },
+    query: { ...route.query, person: personId },
     hash: route.hash,
   })
 }
@@ -64,6 +63,7 @@ function setTextbookSectionRef(
     textbookSections.set(textbookId, element)
     return
   }
+
   textbookSections.delete(textbookId)
 }
 
@@ -72,8 +72,9 @@ function getTextbookIdFromHash(hash: string): string | null {
   if (!hash.startsWith(prefix)) {
     return null
   }
+
   const textbookId = hash.slice(prefix.length)
-  return publishedTextbooks.some(({ id }) => id === textbookId)
+  return publishedTextbooks.some((textbook) => textbook.id === textbookId)
     ? textbookId
     : null
 }
@@ -111,14 +112,14 @@ function selectTextbook(textbookId: string): void {
   void scrollToTextbook(textbookId, 'smooth')
 }
 
-function getActivationOffset(): number {
+function getTextbookActivationOffset(): number {
   return window.matchMedia?.('(max-width: 760px)').matches
     ? appHeaderHeight.value + 68
     : 96
 }
 
 function updateActiveTextbookFromScroll(): void {
-  const activationOffset = getActivationOffset()
+  const activationOffset = getTextbookActivationOffset()
   let currentTextbookId = publishedTextbooks[0]?.id ?? ''
 
   for (const textbook of publishedTextbooks) {
@@ -142,7 +143,7 @@ function updateAppHeaderHeight(): void {
   )
 }
 
-function observePageLayout(): void {
+function observePagePosition(): void {
   updateAppHeaderHeight()
   window.addEventListener('resize', updateAppHeaderHeight)
   window.addEventListener('scroll', updateActiveTextbookFromScroll, {
@@ -158,9 +159,21 @@ function observePageLayout(): void {
   }
 }
 
+watch(
+  () => route.hash,
+  async (hash) => {
+    const textbookId = getTextbookIdFromHash(hash)
+    if (!textbookId || textbookId === activeTextbookId.value) {
+      return
+    }
+
+    await scrollToTextbook(textbookId, 'auto', false)
+  },
+)
+
 onMounted(async () => {
   await nextTick()
-  observePageLayout()
+  observePagePosition()
   const initialTextbookId = getTextbookIdFromHash(route.hash)
   if (initialTextbookId) {
     await scrollToTextbook(initialTextbookId, 'auto', false)
@@ -181,9 +194,9 @@ onBeforeUnmount(() => {
   >
     <header class="page-header">
       <p class="eyebrow">Textbook people archive</p>
-      <h1>人物</h1>
+      <h1>教材人物</h1>
       <p class="page-intro">
-        沿教材册次查阅重要人物，在具体课程中回到人物所处的历史脉络。
+        按教材册次浏览历史人物，结合人物线索与所在课程建立知识联系。
       </p>
     </header>
 
@@ -191,24 +204,23 @@ onBeforeUnmount(() => {
       <div class="catalog-heading">
         <div>
           <p class="catalog-meta">
-            内置 · 只读 · {{ uniquePersonCount }} 个人物
+            内置 · 只读 · {{ catalog.uniquePersonCount }} 位人物
           </p>
-          <h2 id="person-catalog-title">统编历史教材人物目录</h2>
+          <h2 id="person-catalog-title">教材人物卡片</h2>
         </div>
-        <span class="edition-mark">2024 · 人教版</span>
+        <span class="volume-count">{{ catalog.groups.length }} 册已出版</span>
       </div>
 
       <div class="catalog-layout">
         <div class="textbook-groups">
           <section
-            v-for="group in textbookGroups"
+            v-for="group in catalog.groups"
             :id="`textbook-${group.textbook.id}`"
             :key="group.textbook.id"
             :ref="
               (element) => setTextbookSectionRef(group.textbook.id, element)
             "
             class="textbook-section"
-            :data-textbook-id="group.textbook.id"
             :data-test="`textbook-section-${group.textbook.id}`"
             :aria-labelledby="`textbook-title-${group.textbook.id}`"
           >
@@ -216,14 +228,13 @@ onBeforeUnmount(() => {
               <div>
                 <p class="textbook-edition">
                   {{ group.textbook.edition }} ·
-                  {{ group.textbook.revisionYear }} 年
+                  {{ group.textbook.revisionYear }}
                 </p>
                 <h3 :id="`textbook-title-${group.textbook.id}`">
                   {{ group.textbook.title }}
                 </h3>
-                <p class="textbook-summary">{{ group.textbook.summary }}</p>
               </div>
-              <span class="textbook-count">{{ group.people.length }} 人</span>
+              <span class="person-count">{{ group.entries.length }} 位</span>
             </header>
 
             <div class="person-grid">
@@ -231,31 +242,28 @@ onBeforeUnmount(() => {
                 v-for="entry in group.entries"
                 :key="entry.person.id"
                 class="person-card"
-                :data-test="`textbook-person-${group.textbook.id}-${entry.person.id}`"
+                :data-test="`person-card-${entry.person.id}`"
               >
                 <button
-                  class="person-detail-trigger"
+                  class="person-detail-button"
+                  :data-test="`open-person-${entry.person.id}`"
                   type="button"
-                  :data-test="`person-detail-trigger-${group.textbook.id}-${entry.person.id}`"
                   :aria-label="`查看${entry.person.name}详情`"
-                  @click="openPerson(entry.person)"
+                  @click="openPersonDetail(entry.person.id)"
                 >
-                  <span class="person-lifetime">
-                    {{ entry.person.lifeTime }}
-                  </span>
+                  <span class="person-lifetime">{{ entry.person.lifeTime }}</span>
                   <strong>{{ entry.person.name }}</strong>
                   <span class="person-summary">{{ entry.person.summary }}</span>
                 </button>
-                <div class="lesson-links" aria-label="关联课程">
-                  <RouterLink
-                    v-for="lesson in entry.lessons"
-                    :key="lesson.id"
-                    :data-test="`person-card-lesson-${group.textbook.id}-${lesson.id}`"
-                    :to="`/textbooks/${group.textbook.id}/lessons/${lesson.id}`"
-                  >
-                    第{{ lesson.lessonNumber }}课 · {{ lesson.title }}
-                  </RouterLink>
-                </div>
+                <RouterLink
+                  v-for="lesson in entry.lessons"
+                  :key="lesson.id"
+                  class="lesson-link"
+                  :data-test="`person-lesson-${lesson.id}`"
+                  :to="`/textbooks/${group.textbook.id}/lessons/${lesson.id}`"
+                >
+                  第{{ lesson.lessonNumber }}课 {{ lesson.title }}
+                </RouterLink>
               </article>
             </div>
           </section>
@@ -263,7 +271,6 @@ onBeforeUnmount(() => {
 
         <aside class="textbook-navigation-column">
           <TextbookVolumeNavigation
-            data-test="textbook-navigation"
             :textbooks="publishedTextbooks"
             :active-textbook-id="activeTextbookId"
             @select="selectTextbook"
@@ -276,6 +283,7 @@ onBeforeUnmount(() => {
       v-if="selectedPerson"
       :key="selectedPerson.id"
       :person="selectedPerson"
+      :groups="catalog.groups"
       @close="closePersonDetail"
     />
   </section>
@@ -295,7 +303,7 @@ onBeforeUnmount(() => {
 
 .eyebrow,
 .catalog-meta,
-.edition-mark {
+.volume-count {
   color: var(--cinnabar);
   font-family: var(--font-utility);
   font-size: 12px;
@@ -351,7 +359,7 @@ onBeforeUnmount(() => {
   line-height: 1.1;
 }
 
-.edition-mark {
+.volume-count {
   flex: 0 0 auto;
   color: var(--bronze);
   letter-spacing: 0.06em;
@@ -412,14 +420,14 @@ onBeforeUnmount(() => {
 }
 
 .textbook-heading h3 {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   font-family: var(--font-display);
-  font-size: clamp(28px, 4vw, 40px);
+  font-size: clamp(26px, 4vw, 38px);
   line-height: 1.1;
 }
 
 .textbook-edition,
-.textbook-count {
+.person-count {
   color: var(--bronze);
   font-family: var(--font-utility);
   font-size: 11px;
@@ -427,19 +435,11 @@ onBeforeUnmount(() => {
   letter-spacing: 0.06em;
 }
 
-.textbook-edition,
-.textbook-summary {
+.textbook-edition {
   margin: 0;
 }
 
-.textbook-summary {
-  max-width: 680px;
-  margin-top: 9px;
-  color: var(--muted-ink);
-  line-height: 1.65;
-}
-
-.textbook-count {
+.person-count {
   flex: 0 0 auto;
   padding-bottom: 4px;
 }
@@ -457,90 +457,61 @@ onBeforeUnmount(() => {
 }
 
 .person-card {
-  position: relative;
   display: grid;
-  gap: 10px;
+  align-content: start;
+  gap: 8px;
   min-width: 0;
-  padding: 20px;
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--aged-gold) 18%, transparent) 1px,
-      transparent 1px
-    ),
-    color-mix(in srgb, var(--paper) 90%, transparent);
+  padding: 18px;
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
   border: 1px solid color-mix(in srgb, var(--muted-ink) 18%, transparent);
   border-radius: 16px;
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--ink) 7%, transparent);
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
-.person-card:hover {
-  box-shadow: 0 18px 36px color-mix(in srgb, var(--ink) 14%, transparent);
-  transform: translateY(-3px);
-}
-
-.person-detail-trigger {
+.person-detail-button {
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  gap: 10px;
-  padding: 0;
+  gap: 9px;
+  width: 100%;
+  padding: 0 0 12px;
   color: inherit;
   text-align: left;
   cursor: pointer;
   background: transparent;
   border: 0;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--muted-ink) 16%, transparent);
 }
 
-.person-detail-trigger:focus-visible {
-  outline: 3px solid var(--cinnabar);
-  outline-offset: 4px;
-}
-
-.person-lifetime,
-.person-summary {
-  margin: 0;
+.person-detail-button strong {
+  font-family: var(--font-display);
+  font-size: 24px;
 }
 
 .person-lifetime {
   color: var(--bronze);
   font-family: var(--font-utility);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-}
-
-.person-detail-trigger strong {
-  font-family: var(--font-display);
-  font-size: 26px;
-  line-height: 1.15;
+  font-weight: 800;
 }
 
 .person-summary {
   color: var(--muted-ink);
-  line-height: 1.7;
+  line-height: 1.65;
 }
 
-.lesson-links {
-  display: grid;
-  gap: 7px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--muted-ink) 16%, transparent);
-}
-
-.lesson-links a {
-  color: var(--cinnabar);
+.lesson-link {
+  display: block;
+  padding: 7px 9px;
+  color: var(--ink);
   font-size: 13px;
-  font-weight: 800;
-  line-height: 1.45;
-  text-decoration-color: color-mix(in srgb, var(--cinnabar) 38%, transparent);
-  text-underline-offset: 3px;
+  text-decoration: none;
+  background: color-mix(in srgb, var(--aged-gold) 9%, transparent);
+  border-radius: 8px;
 }
 
-.lesson-links a:focus-visible {
-  outline: 2px solid var(--cinnabar);
+.person-detail-button:focus-visible,
+.lesson-link:focus-visible {
+  outline: 3px solid var(--cinnabar);
   outline-offset: 3px;
 }
 
@@ -584,7 +555,7 @@ onBeforeUnmount(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .person-card {
-    transition: none;
+    scroll-behavior: auto;
   }
 }
 </style>

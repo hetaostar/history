@@ -5,83 +5,57 @@ import type {
   ITextbookUnit,
 } from './textbookTypes'
 
-export function buildPublishedTextbookPeopleCatalog(
+export interface ITextbookPersonEntry {
+  readonly person: ITextbookPerson
+  readonly lessons: readonly ITextbookLesson[]
+}
+
+export interface ITextbookPeopleGroup {
+  readonly textbook: ITextbook
+  readonly entries: readonly ITextbookPersonEntry[]
+}
+
+export interface ITextbookPeopleCatalog {
+  readonly groups: readonly ITextbookPeopleGroup[]
+  readonly uniquePersonCount: number
+}
+
+export function buildTextbookPeopleCatalog(
   textbooks: readonly ITextbook[],
   people: readonly ITextbookPerson[],
-  units: readonly ITextbookUnit[] = [],
-  lessons: readonly ITextbookLesson[] = [],
-) {
+  units: readonly ITextbookUnit[],
+  lessons: readonly ITextbookLesson[],
+): ITextbookPeopleCatalog {
   const textbookIdByUnitId = new Map(
-    units.map(({ id, textbookId }) => [id, textbookId]),
+    units.map((unit) => [unit.id, unit.textbookId]),
   )
-  const lessonsByTextbookAndPerson = new Map<string, ITextbookLesson[]>()
-
-  ;[...lessons]
-    .sort((left, right) => left.lessonNumber - right.lessonNumber)
-    .forEach((lesson) => {
-      const textbookId = textbookIdByUnitId.get(lesson.unitId)
-      if (!textbookId) {
-        return
-      }
-      lesson.personIds.forEach((personId) => {
-        const key = `${textbookId}:${personId}`
-        const personLessons = lessonsByTextbookAndPerson.get(key) ?? []
-        personLessons.push(lesson)
-        lessonsByTextbookAndPerson.set(key, personLessons)
-      })
-    })
-
   const groups = textbooks
-    .filter(({ status }) => status === 'published')
+    .filter((textbook) => textbook.status === 'published')
     .sort((left, right) => left.order - right.order)
     .map((textbook) => {
-      const textbookPeople = people.filter(({ textbookIds }) =>
-        textbookIds.includes(textbook.id),
+      const textbookLessons = lessons.filter(
+        (lesson) => textbookIdByUnitId.get(lesson.unitId) === textbook.id,
       )
+
       return {
         textbook,
-        people: textbookPeople,
-        entries: textbookPeople.map((person) => ({
-          person,
-          lessons:
-            lessonsByTextbookAndPerson.get(`${textbook.id}:${person.id}`) ?? [],
-        })),
+        entries: people
+          .filter((person) => person.textbookIds.includes(textbook.id))
+          .map((person) => ({
+            person,
+            lessons: textbookLessons
+              .filter((lesson) => lesson.personIds.includes(person.id))
+              .sort((left, right) => left.lessonNumber - right.lessonNumber),
+          })),
       }
     })
-  const displayedPersonIds = groups.flatMap(({ people: groupPeople }) =>
-    groupPeople.map(({ id }) => id),
-  )
 
   return {
     groups,
-    uniquePersonCount: new Set(displayedPersonIds).size,
+    uniquePersonCount: new Set(
+      groups.flatMap((group) =>
+        group.entries.map((entry) => entry.person.id),
+      ),
+    ).size,
   }
-}
-
-export function buildTextbookPersonLessonGroups(
-  person: ITextbookPerson,
-  textbooks: readonly ITextbook[],
-  units: readonly ITextbookUnit[],
-  lessons: readonly ITextbookLesson[],
-) {
-  return person.textbookIds.flatMap((textbookId) => {
-    const textbook = textbooks.find(({ id }) => id === textbookId)
-    if (!textbook) {
-      return []
-    }
-
-    const unitIds = new Set(
-      units
-        .filter((unit) => unit.textbookId === textbookId)
-        .map(({ id }) => id),
-    )
-    const personLessons = lessons
-      .filter(
-        (lesson) =>
-          unitIds.has(lesson.unitId) && lesson.personIds.includes(person.id),
-      )
-      .sort((left, right) => left.lessonNumber - right.lessonNumber)
-
-    return [{ textbook, lessons: personLessons }]
-  })
 }

@@ -28,8 +28,9 @@ export function parseHistoryData(value: unknown): IHistoryData {
     throw new Error('导入文件格式不正确')
   }
 
+  const hasExplicitVersion = Object.prototype.hasOwnProperty.call(value, 'version')
   if (
-    value.version !== undefined &&
+    hasExplicitVersion &&
     (typeof value.version !== 'number' ||
       !Number.isInteger(value.version) ||
       value.version < 1)
@@ -37,10 +38,11 @@ export function parseHistoryData(value: unknown): IHistoryData {
     throw new Error('导入文件格式不正确')
   }
 
-  const version = value.version ?? 0
+  const version = hasExplicitVersion ? (value.version as number) : 0
   if (version > CURRENT_SCHEMA_VERSION) {
     throw new Error('导入文件版本过高，请升级应用')
   }
+
   if (!Array.isArray(value.cards) || !Array.isArray(value.studyRecords)) {
     throw new Error('导入文件格式不正确')
   }

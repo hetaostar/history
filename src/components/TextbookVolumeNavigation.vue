@@ -44,7 +44,6 @@ watch(
           class="textbook-button"
           :class="{ 'is-active': textbook.id === activeTextbookId }"
           type="button"
-          :data-test="`textbook-navigation-${textbook.id}`"
           :data-textbook-id="textbook.id"
           :aria-current="
             textbook.id === activeTextbookId ? 'location' : undefined

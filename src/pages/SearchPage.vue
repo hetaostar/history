@@ -45,8 +45,15 @@ const hasResults = computed(() => {
       </label>
     </section>
 
-    <p v-if="!hasQuery" class="empty-message">请输入关键词开始搜索。</p>
-    <p v-else-if="isSearchPending" class="empty-message">正在搜索…</p>
+    <p
+      v-if="isSearchPending"
+      class="empty-message"
+      role="status"
+      aria-live="polite"
+    >
+      正在搜索…
+    </p>
+    <p v-else-if="!hasQuery" class="empty-message">请输入关键词开始搜索。</p>
     <p v-else-if="!hasResults" class="empty-message">没有找到匹配结果。</p>
 
     <section
@@ -63,7 +70,7 @@ const hasResults = computed(() => {
           v-for="person in results.people"
           :key="person.id"
           class="result-card result-link"
-          :to="{ path: '/people', query: { person: person.id } }"
+          :to="`/people?person=${person.id}`"
         >
           <strong>{{ person.name }}</strong>
           <span v-if="person.lifeTime">{{ person.lifeTime }}</span>

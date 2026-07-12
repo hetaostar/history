@@ -1,31 +1,105 @@
-import { enableAutoUnmount, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { TEXTBOOKS } from '@/data/textbooks'
-import { createTextbookPeople } from '@/data/textbooks/createTextbookPeople'
-import { getTextbookPersonById } from '@/domain/textbookSelectors'
+import type { ITextbookPeopleGroup } from '@/domain/textbookPeopleCatalog'
 import type {
+  ITextbook,
   ITextbookLesson,
-  ITextbookUnit,
+  ITextbookPerson,
 } from '@/domain/textbookTypes'
 import TextbookPersonDetail from './TextbookPersonDetail.vue'
 
-const person = getTextbookPersonById('g7u-yuanmou-man')!
-type TextbookPersonDetailProps = InstanceType<
-  typeof TextbookPersonDetail
->['$props']
+const person: ITextbookPerson = {
+  id: 'shared-person',
+  name: '跨册人物',
+  lifeTime: '测试时期',
+  summary: '用于验证跨册详情。',
+  textbookIds: ['book-a', 'book-b'],
+}
 
-function mountDetail(props: TextbookPersonDetailProps = { person }) {
+function createTextbook(
+  id: string,
+  title: string,
+  order: number,
+): ITextbook {
+  return {
+    id,
+    title,
+    shortTitle: title,
+    grade: 7,
+    semester: order === 1 ? 'up' : 'down',
+    edition: '测试版',
+    revisionYear: 2024,
+    status: 'published',
+    summary: '',
+    order,
+  }
+}
+
+function createLesson(
+  id: string,
+  unitId: string,
+  lessonNumber: number,
+  title: string,
+): ITextbookLesson {
+  return {
+    id,
+    unitId,
+    lessonNumber,
+    title,
+    summary: '',
+    personIds: [person.id],
+    eventIds: [],
+  }
+}
+
+const groups: readonly ITextbookPeopleGroup[] = [
+  {
+    textbook: createTextbook('book-a', '第一册', 1),
+    entries: [
+      {
+        person,
+        lessons: [
+          createLesson('lesson-a-1', 'unit-a', 1, '第一册第一课'),
+          createLesson('lesson-a-2', 'unit-a', 2, '第一册第二课'),
+        ],
+      },
+    ],
+  },
+  {
+    textbook: createTextbook('book-b', '第二册', 2),
+    entries: [
+      {
+        person,
+        lessons: [createLesson('lesson-b-1', 'unit-b', 1, '第二册第一课')],
+      },
+    ],
+  },
+]
+
+async function mountDetail() {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/textbooks/:textbookId/lessons/:lessonId', component: {} },
-      { path: '/events', component: {} },
+      {
+        path: '/',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/textbooks/:textbookId/lessons/:lessonId',
+        component: { template: '<div />' },
+      },
     ],
   })
+  await router.push('/')
+  await router.isReady()
+
   return mount(TextbookPersonDetail, {
     attachTo: document.body,
-    props,
+    props: {
+      person,
+      groups,
+    },
     global: { plugins: [router] },
   })
 }
@@ -33,126 +107,56 @@ function mountDetail(props: TextbookPersonDetailProps = { person }) {
 enableAutoUnmount(afterEach)
 
 describe('TextbookPersonDetail', () => {
-  beforeEach(() => {
-    document.body.innerHTML = ''
-    document.body.style.overflow = ''
+  it('明确声明当前页详情使用抽屉布局', async () => {
+    const wrapper = await mountDetail()
+    const dialog = wrapper.get('[role="dialog"]')
+
+    expect(dialog.attributes('data-layout')).toBe('drawer')
+    expect(
+      wrapper.find('[data-test="textbook-person-detail-drawer"]').exists(),
+    ).toBe(true)
   })
 
-  it('显示只读人物资料、所属教材和具体课程链接', () => {
-    const wrapper = mountDetail()
+  it('渲染可访问模态框和人物基础信息', async () => {
+    const wrapper = await mountDetail()
 
+    expect(wrapper.get('[role="dialog"]').attributes('aria-modal')).toBe('true')
     expect(wrapper.get('h2').text()).toBe(person.name)
     expect(wrapper.text()).toContain(person.lifeTime)
     expect(wrapper.text()).toContain(person.summary)
-    expect(wrapper.get('[data-test="person-textbook-grade-7-up"]').text()).toContain(
-      '七年级上册',
-    )
-    const lessonLink = wrapper.get(
-      '[data-test="person-lesson-grade-7-up-g7u-lesson-01"]',
-    )
-    expect(lessonLink.text()).toContain('远古时期的人类活动')
-    expect(lessonLink.attributes('href')).toBe(
-      '/textbooks/grade-7-up/lessons/g7u-lesson-01',
-    )
   })
 
-  it('只读展示人物对应的教材事件并链接到事件详情', () => {
-    const confucius = getTextbookPersonById('g7u-confucius')!
-    const wrapper = mountDetail({ person: confucius })
-    const eventLink = wrapper.get('[data-test="person-event-china-event-0012"]')
+  it('按所属教材隔离展示跨册课程', async () => {
+    const wrapper = await mountDetail()
+    const sections = wrapper.findAll('[data-test^="person-textbook-"]')
 
-    expect(wrapper.text()).toContain('关联事件')
-    expect(eventLink.text()).toContain('孔子诞生')
-    expect(eventLink.attributes('href')).toBe('/events?event=china-event-0012')
-    expect(wrapper.text()).not.toContain('新增相关事件')
-    expect(wrapper.text()).not.toContain('保存相关事件')
+    expect(sections).toHaveLength(2)
+    expect(sections[0].text()).toContain('第一册')
+    expect(sections[0].text()).toContain('第一册第一课')
+    expect(sections[0].text()).toContain('第一册第二课')
+    expect(sections[0].text()).not.toContain('第二册第一课')
+    expect(sections[1].text()).toContain('第二册')
+    expect(sections[1].text()).toContain('第二册第一课')
+    expect(sections[1].text()).not.toContain('第一册第一课')
   })
 
-  it('跨册人物展示全部所属教材及每册各自的课程', () => {
-    const [sharedPerson] = createTextbookPeople(
-      [['shared-person', '跨册人物', '测试时期', '用于验证多册详情。']],
-      ['grade-7-up', 'grade-7-down'],
-    )
-    const units = [
-      {
-        id: 'synthetic-up-unit',
-        textbookId: 'grade-7-up',
-        title: '上册单元',
-        summary: '',
-        order: 1,
-      },
-      {
-        id: 'synthetic-down-unit',
-        textbookId: 'grade-7-down',
-        title: '下册单元',
-        summary: '',
-        order: 1,
-      },
-    ] satisfies readonly ITextbookUnit[]
-    const lessons = [
-      {
-        id: 'synthetic-up-lesson',
-        unitId: 'synthetic-up-unit',
-        lessonNumber: 1,
-        title: '上册关联课程',
-        summary: '',
-        personIds: ['shared-person'],
-        eventIds: [],
-      },
-      {
-        id: 'synthetic-down-lesson',
-        unitId: 'synthetic-down-unit',
-        lessonNumber: 2,
-        title: '下册关联课程',
-        summary: '',
-        personIds: ['shared-person'],
-        eventIds: [],
-      },
-    ] satisfies readonly ITextbookLesson[]
+  it('课程链接指向对应教材课程详情', async () => {
+    const wrapper = await mountDetail()
 
-    const wrapper = mountDetail({
-      person: sharedPerson,
-      textbooks: TEXTBOOKS,
-      units,
-      lessons,
-    })
-
-    const upGroup = wrapper.get('[data-test="person-textbook-grade-7-up"]')
-    const downGroup = wrapper.get('[data-test="person-textbook-grade-7-down"]')
-    expect(upGroup.text()).toContain('七年级上册')
-    expect(upGroup.text()).toContain('上册关联课程')
-    expect(upGroup.text()).not.toContain('下册关联课程')
-    expect(downGroup.text()).toContain('七年级下册')
-    expect(downGroup.text()).toContain('下册关联课程')
-    expect(downGroup.text()).not.toContain('上册关联课程')
     expect(
-      upGroup.get('[data-test="person-lesson-grade-7-up-synthetic-up-lesson"]')
+      wrapper
+        .get('[data-test="person-lesson-lesson-b-1"]')
         .attributes('href'),
-    ).toBe('/textbooks/grade-7-up/lessons/synthetic-up-lesson')
-    expect(
-      downGroup
-        .get(
-          '[data-test="person-lesson-grade-7-down-synthetic-down-lesson"]',
-        )
-        .attributes('href'),
-    ).toBe('/textbooks/grade-7-down/lessons/synthetic-down-lesson')
+    ).toBe('/textbooks/book-b/lessons/lesson-b-1')
   })
 
-  it('提供可访问对话框语义并支持按钮、遮罩与 ESC 关闭', async () => {
-    const wrapper = mountDetail()
-    const dialog = wrapper.get('[role="dialog"]')
-    const title = wrapper.get('h2')
+  it('点击关闭按钮和按 Escape 都发出关闭事件', async () => {
+    const wrapper = await mountDetail()
 
-    expect(dialog.attributes('aria-modal')).toBe('true')
-    expect(dialog.attributes('aria-labelledby')).toBe(title.attributes('id'))
-    expect(wrapper.get('[data-test="close"]').attributes('aria-label')).toBe(
-      '关闭人物详情',
-    )
-
-    await wrapper.get('[data-test="close"]').trigger('click')
-    await wrapper.get('[data-test="person-detail-overlay"]').trigger('click')
+    await wrapper.get('[data-test="close-person-detail"]').trigger('click')
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
 
-    expect(wrapper.emitted('close')).toHaveLength(3)
+    expect(wrapper.emitted('close')).toEqual([[], []])
   })
 })
