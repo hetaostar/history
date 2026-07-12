@@ -1,13 +1,17 @@
-import { mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import {
   getAllTextbookEvents,
   getAllTextbookPeople,
 } from '@/domain/textbookSelectors'
 import { useHistoryStore } from '@/stores/historyStore'
+import riverAsyncStatusSource from '@/components/RiverAsyncStatus.vue?raw'
 import HomePage from './HomePage.vue'
+import homePageSource from './HomePage.vue?raw'
+
+enableAutoUnmount(afterEach)
 
 function createTestRouter() {
   return createRouter({
@@ -18,6 +22,7 @@ function createTestRouter() {
       { path: '/events', component: { template: '<div />' } },
       { path: '/cards', component: { template: '<div />' } },
       { path: '/search', component: { template: '<div />' } },
+      { path: '/china-river', component: { template: '<div />' } },
       { path: '/textbooks/:textbookId', component: { template: '<div />' } },
     ],
   })
@@ -27,6 +32,10 @@ describe('HomePage', () => {
   beforeEach(() => {
     localStorage.clear()
     setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('使用去重后的教材人物数统计人物和全部学习材料', async () => {
@@ -129,5 +138,110 @@ describe('HomePage', () => {
     expect(shelf.text()).toContain('九下')
     expect(shelf.text().match(/待出版/g)).toHaveLength(4)
     expect(wrapper.findAll('.feature-card')).toHaveLength(4)
+  })
+
+  it('在所有功能卡之后展示可进入沉浸模式的中华历史长河', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createTestRouter()
+    await router.push('/')
+    await router.isReady()
+
+    const wrapper = mount(HomePage, {
+      global: { plugins: [pinia, router] },
+    })
+    const featureRail = wrapper.get('.feature-rail')
+    const riverSection = wrapper.get('.home-river-section')
+
+    expect(
+      featureRail.element.compareDocumentPosition(riverSection.element) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(riverSection.get('h2').text()).toBe('中华历史长河')
+    expect(riverSection.get('.river-immersive-link').attributes('href')).toBe(
+      '/china-river',
+    )
+    expect(riverSection.text()).toContain('拖动浏览')
+  })
+
+  it('接近长河区块时才初始化交互画布并清理观察器', async () => {
+    let callback: IntersectionObserverCallback | undefined
+    let observerOptions: IntersectionObserverInit | undefined
+    const observe = vi.fn()
+    const disconnect = vi.fn()
+
+    class FakeIntersectionObserver {
+      constructor(
+        nextCallback: IntersectionObserverCallback,
+        options?: IntersectionObserverInit,
+      ) {
+        callback = nextCallback
+        observerOptions = options
+      }
+
+      observe = observe
+      disconnect = disconnect
+    }
+
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createTestRouter()
+    await router.push('/')
+    await router.isReady()
+    const wrapper = mount(HomePage, {
+      global: { plugins: [pinia, router] },
+    })
+
+    expect(observe).toHaveBeenCalledOnce()
+    expect(observerOptions?.rootMargin).toBe('240px 0px')
+    expect(wrapper.find('[data-test="home-river-explorer"]').exists()).toBe(
+      false,
+    )
+
+    callback?.(
+      [{ isIntersecting: false } as IntersectionObserverEntry],
+      {} as IntersectionObserver,
+    )
+    await flushPromises()
+    expect(wrapper.find('[data-test="home-river-explorer"]').exists()).toBe(
+      false,
+    )
+
+    callback?.(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver,
+    )
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="home-river-explorer"]').exists()).toBe(true)
+
+    wrapper.unmount()
+    expect(disconnect).toHaveBeenCalled()
+  })
+
+  it('浏览器不支持 IntersectionObserver 时直接加载长河', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined)
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createTestRouter()
+    await router.push('/')
+    await router.isReady()
+    const wrapper = mount(HomePage, {
+      global: { plugins: [pinia, router] },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="home-river-explorer"]').exists()).toBe(true)
+  })
+
+  it('异步画布加载期间保持章节高度并提供失败提示', () => {
+    expect(homePageSource).toMatch(
+      /\.home-river-explorer\s*\{[^}]*min-height:\s*var\(--river-canvas-height\)/s,
+    )
+    expect(homePageSource).toContain('loadingComponent:')
+    expect(homePageSource).toContain('errorComponent:')
+    expect(riverAsyncStatusSource).toContain('中华历史长河加载失败')
   })
 })

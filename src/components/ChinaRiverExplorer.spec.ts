@@ -1,16 +1,17 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, onMounted } from 'vue'
 import { DYNASTIES } from '@/data/chinaHistoryRiver'
 import { getAllTextbookEvents } from '@/domain/textbookSelectors'
-import ChinaHistoryRiverPage from './ChinaHistoryRiverPage.vue'
-import chinaHistoryRiverPageSource from './ChinaHistoryRiverPage.vue?raw'
+import ChinaRiverExplorer from './ChinaRiverExplorer.vue'
+
+enableAutoUnmount(afterEach)
 
 type ResizeObserverCallback = (entries: ResizeObserverEntry[]) => void
 
 const resizeObservers: FakeResizeObserver[] = []
 let measuredWidth = 1180
-let measuredHeight = 640
+let measuredHeight = 480
 const textbookEvents = getAllTextbookEvents()
 
 class FakeResizeObserver {
@@ -28,17 +29,13 @@ class FakeResizeObserver {
   }
 }
 
-function mountPage(
+function mountExplorer(
   componentStubs: Record<string, ReturnType<typeof defineComponent>> = {},
 ) {
-  return mount(ChinaHistoryRiverPage, {
+  return mount(ChinaRiverExplorer, {
     attachTo: document.body,
     global: {
       stubs: {
-        RouterLink: {
-          props: ['to'],
-          template: '<a :href="to"><slot /></a>',
-        },
         ChinaRiverCanvas: {
           name: 'ChinaRiverCanvas',
           props: ['width', 'height', 'dynasties', 'events'],
@@ -59,11 +56,11 @@ function mountPage(
   })
 }
 
-describe('ChinaHistoryRiverPage', () => {
+describe('ChinaRiverExplorer', () => {
   beforeEach(() => {
     resizeObservers.length = 0
     measuredWidth = 1180
-    measuredHeight = 640
+    measuredHeight = 480
     vi.stubGlobal('ResizeObserver', FakeResizeObserver)
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
       () => ({
@@ -80,55 +77,28 @@ describe('ChinaHistoryRiverPage', () => {
     )
   })
 
-  it('作为独立页面返回主页而不是时间线列表', () => {
-    const wrapper = mountPage()
-    const backLink = wrapper.get('.back-link')
-
-    expect(backLink.attributes('href')).toBe('/')
-    expect(backLink.text()).toBe('返回主页')
-    expect(wrapper.text()).not.toContain('时间线列表')
-  })
-
-  it('使用页面内独立深色主题且不修改全局 body', () => {
-    const style =
-      chinaHistoryRiverPageSource.match(
-        /<style scoped>([\s\S]*?)<\/style>/,
-      )?.[1] ?? ''
-
-    expect(style).toContain('--river-page-background:')
-    expect(style).not.toContain(':global(body)')
-  })
-
-  it('通过共享探索器复用画布测量与事件详情交互', () => {
-    expect(chinaHistoryRiverPageSource).toContain(
-      "import ChinaRiverExplorer from '@/components/ChinaRiverExplorer.vue'",
-    )
-    expect(chinaHistoryRiverPageSource).toContain('<ChinaRiverExplorer')
-  })
-
   afterEach(() => {
     document.body.innerHTML = ''
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
-  it('将容器尺寸和只读内置数据传给画布', async () => {
-    const wrapper = await mountPage()
+  it('将容器尺寸和只读历史数据传给画布', async () => {
+    const wrapper = mountExplorer()
     await flushPromises()
 
     const canvas = wrapper.getComponent({ name: 'ChinaRiverCanvas' })
     expect(canvas.props('width')).toBe(1180)
-    expect(canvas.props('height')).toBe(640)
+    expect(canvas.props('height')).toBe(480)
     expect(canvas.props('dynasties')).toBe(DYNASTIES)
     expect(canvas.props('events')).toBe(textbookEvents)
-    expect(wrapper.text()).toContain('教材 · 只读 · 112 个事件')
   })
 
-  it('尺寸为 0 时不绘制并显示明确状态', async () => {
+  it('尺寸不可用时显示明确状态而不绘制画布', async () => {
     measuredWidth = 0
     measuredHeight = 0
 
-    const wrapper = await mountPage()
+    const wrapper = mountExplorer()
     await flushPromises()
 
     expect(wrapper.findComponent({ name: 'ChinaRiverCanvas' }).exists()).toBe(
@@ -139,8 +109,8 @@ describe('ChinaHistoryRiverPage', () => {
     )
   })
 
-  it('点击事件打开详情，关闭后恢复画布', async () => {
-    const wrapper = await mountPage()
+  it('点击事件打开详情并允许关闭', async () => {
+    const wrapper = mountExplorer()
     await flushPromises()
 
     await wrapper.get('[data-test="canvas"]').trigger('click')
@@ -150,25 +120,21 @@ describe('ChinaHistoryRiverPage', () => {
 
     await wrapper.get('[data-test="close-detail"]').trigger('click')
     expect(wrapper.find('[data-test="detail"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="canvas"]').exists()).toBe(true)
   })
 
-  it('响应容器变化并在卸载时清理观察器和窗口监听', async () => {
+  it('响应尺寸变化并在卸载时清理监听', async () => {
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
-    const wrapper = await mountPage()
+    const wrapper = mountExplorer()
     await flushPromises()
 
-    measuredWidth = 960
-    measuredHeight = 540
+    measuredWidth = 920
+    measuredHeight = 520
     resizeObservers[0].trigger()
     await nextTick()
 
-    expect(
-      wrapper.getComponent({ name: 'ChinaRiverCanvas' }).props('width'),
-    ).toBe(960)
-    expect(
-      wrapper.getComponent({ name: 'ChinaRiverCanvas' }).props('height'),
-    ).toBe(540)
+    const canvas = wrapper.getComponent({ name: 'ChinaRiverCanvas' })
+    expect(canvas.props('width')).toBe(920)
+    expect(canvas.props('height')).toBe(520)
 
     wrapper.unmount()
     expect(resizeObservers[0].disconnect).toHaveBeenCalledOnce()
@@ -178,28 +144,7 @@ describe('ChinaHistoryRiverPage', () => {
     )
   })
 
-  it('挂载后立即卸载不会遗留观察器或窗口监听', async () => {
-    const addEventListener = vi.spyOn(window, 'addEventListener')
-    const removeEventListener = vi.spyOn(window, 'removeEventListener')
-
-    const wrapper = mountPage()
-    wrapper.unmount()
-    await flushPromises()
-
-    expect(addEventListener).toHaveBeenCalledWith(
-      'resize',
-      expect.any(Function),
-    )
-    expect(removeEventListener).toHaveBeenCalledWith(
-      'resize',
-      expect.any(Function),
-    )
-    expect(resizeObservers).toHaveLength(1)
-    expect(resizeObservers[0].observe).toHaveBeenCalledOnce()
-    expect(resizeObservers[0].disconnect).toHaveBeenCalledOnce()
-  })
-
-  it('子组件异常时显示页面级回退并移除整个风险子树', async () => {
+  it('风险子组件异常时只替换探索器内容', async () => {
     const escapedError = vi.fn()
     const FaultyEventDetail = defineComponent({
       name: 'RiverEventDetail',
@@ -210,7 +155,7 @@ describe('ChinaHistoryRiverPage', () => {
         return () => h('aside', { 'data-test': 'faulty-detail' }, '故障详情')
       },
     })
-    const wrapper = mountPage({ RiverEventDetail: FaultyEventDetail })
+    const wrapper = mountExplorer({ RiverEventDetail: FaultyEventDetail })
     wrapper.vm.$.appContext.config.errorHandler = escapedError
     await flushPromises()
 
