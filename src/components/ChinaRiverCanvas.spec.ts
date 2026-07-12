@@ -68,6 +68,12 @@ function flushAnimationFrames() {
   callbacks.forEach((callback) => callback(performance.now()))
 }
 
+async function waitForD3DragCleanup() {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0)
+  })
+}
+
 function mountCanvas() {
   return mount(ChinaRiverCanvas, {
     attachTo: document.body,
@@ -78,6 +84,11 @@ function mountCanvas() {
       events,
     },
   })
+}
+
+function getLastRiverRange() {
+  const calls = vi.mocked(createRiverDataPoints).mock.calls
+  return calls[calls.length - 1]?.[1]
 }
 
 function createConcurrentDynasty(id: string, index: number): IDynasty {
@@ -153,6 +164,274 @@ afterEach(() => {
 })
 
 describe('ChinaRiverCanvas', () => {
+  it('未传年份配置时保持原有范围、中心与缩放', () => {
+    const wrapper = mountCanvas()
+
+    expect(getLastRiverRange()).toMatchObject({
+      startYear: -2500,
+      endYear: 2025,
+    })
+    expect(
+      getScale(wrapper.get('.river-world').attributes('transform')),
+    ).toBeCloseTo(0.12)
+    expect(
+      getTranslateX(wrapper.get('.river-world').attributes('transform')),
+    ).toBeCloseTo(24)
+
+    wrapper.unmount()
+  })
+
+  it('使用自定义年份范围换算坐标、刻度并仅显示范围内事件', async () => {
+    const customEvents: IHistoricalEvent[] = [
+      {
+        id: 'custom-visible',
+        year: 750,
+        title: '范围内事件',
+        type: 'politics',
+        importance: 1,
+      },
+      {
+        id: 'custom-hidden',
+        year: 1200,
+        title: '范围外事件',
+        type: 'politics',
+        importance: 1,
+      },
+    ]
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1000,
+        height: 640,
+        dynasties,
+        events: customEvents,
+        startYear: 500,
+        endYear: 1000,
+        initialCenterYear: 750,
+        initialZoom: 0.125,
+      },
+    })
+
+    expect(getLastRiverRange()).toMatchObject({
+      startYear: 500,
+      endYear: 1000,
+    })
+    expect(
+      wrapper.find('[data-test="river-event-custom-visible"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.find('[data-test="river-event-custom-hidden"]').exists(),
+    ).toBe(false)
+    expect(
+      wrapper
+        .get('[data-test="prc-track"]')
+        .classes('prc-track--visible'),
+    ).toBe(false)
+    expect(wrapper.findAll('.tick-label').map((tick) => tick.text())).toEqual(
+      expect.arrayContaining(['公元500年', '公元1000年']),
+    )
+
+    wrapper.element.dispatchEvent(
+      new PointerEvent('pointermove', {
+        clientX: 500,
+        clientY: 240,
+        bubbles: true,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+
+    expect(wrapper.get('[data-test="hover-year-badge"]').text()).toContain(
+      '750年',
+    )
+    wrapper.unmount()
+  })
+
+  it('年份范围配置变化后重置到新的初始视口', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties,
+        events,
+        startYear: 0,
+        endYear: 1000,
+        initialCenterYear: 500,
+        initialZoom: 0.2,
+      },
+    })
+    flushAnimationFrames()
+
+    await wrapper.get('svg').trigger('keydown', { key: '+' })
+    flushAnimationFrames()
+    await nextTick()
+    expect(
+      getScale(wrapper.get('.river-world').attributes('transform')),
+    ).toBeGreaterThan(0.2)
+
+    await wrapper.setProps({
+      startYear: 1200,
+      endYear: 2000,
+      initialCenterYear: 1600,
+      initialZoom: 0.125,
+    })
+    await nextTick()
+    flushAnimationFrames()
+    await nextTick()
+
+    expect(getLastRiverRange()).toMatchObject({
+      startYear: 1200,
+      endYear: 2000,
+    })
+    expect(
+      getScale(wrapper.get('.river-world').attributes('transform')),
+    ).toBeCloseTo(0.125)
+
+    wrapper.element.dispatchEvent(
+      new PointerEvent('pointermove', {
+        clientX: 600,
+        clientY: 240,
+        bubbles: true,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+    expect(wrapper.get('[data-test="hover-year-badge"]').text()).toContain(
+      '1600年',
+    )
+    wrapper.unmount()
+  })
+
+  it('规范化反向范围、越界中心和非法缩放且不崩溃', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties,
+        events,
+        startYear: 1000,
+        endYear: 500,
+        initialCenterYear: 4000,
+        initialZoom: Number.NaN,
+      },
+    })
+
+    expect(getLastRiverRange()).toMatchObject({
+      startYear: 500,
+      endYear: 1000,
+    })
+    expect(
+      Number.isFinite(
+        getScale(wrapper.get('.river-world').attributes('transform')),
+      ),
+    ).toBe(true)
+
+    await wrapper.setProps({ startYear: 700, endYear: 700 })
+    await nextTick()
+
+    const range = getLastRiverRange()
+    expect(range?.endYear).toBeGreaterThan(range?.startYear ?? Infinity)
+    expect(wrapper.find('svg').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('将小数年份配置规范化为安全整数', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1000,
+        height: 640,
+        dynasties,
+        events: [],
+        startYear: 500.6,
+        endYear: 1000.4,
+        initialCenterYear: 750.6,
+        initialZoom: 0.125,
+      },
+    })
+
+    expect(getLastRiverRange()).toMatchObject({
+      startYear: 501,
+      endYear: 1000,
+    })
+
+    wrapper.element.dispatchEvent(
+      new PointerEvent('pointermove', {
+        clientX: 500,
+        clientY: 240,
+        bubbles: true,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+
+    expect(wrapper.get('[data-test="hover-year-badge"]').text()).toContain(
+      '751年',
+    )
+    wrapper.unmount()
+  })
+
+  it.each([
+    {
+      name: '超出安全整数的极大有限值',
+      startYear: Number.MAX_VALUE,
+      endYear: Number.MAX_VALUE,
+    },
+    {
+      name: '超过保护上限的巨大跨度',
+      startYear: -1_000_000,
+      endYear: 1_000_000,
+    },
+  ])('$name 回退默认范围且不触发巨型采样', ({ startYear, endYear }) => {
+    let wrapper: ReturnType<typeof mount> | undefined
+
+    expect(() => {
+      wrapper = mount(ChinaRiverCanvas, {
+        props: {
+          width: 1200,
+          height: 720,
+          dynasties,
+          events,
+          startYear,
+          endYear,
+        },
+      })
+    }).not.toThrow()
+    expect(getLastRiverRange()).toMatchObject({
+      startYear: -2500,
+      endYear: 2025,
+    })
+
+    wrapper?.unmount()
+  })
+
+  it.each([
+    { center: Number.NaN, zoom: Number.NaN },
+    { center: Number.POSITIVE_INFINITY, zoom: Number.POSITIVE_INFINITY },
+    { center: Number.NEGATIVE_INFINITY, zoom: 0 },
+    { center: 750, zoom: -1 },
+  ])('安全规范化 center=$center 与 zoom=$zoom', ({ center, zoom }) => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties,
+        events: [],
+        startYear: 500,
+        endYear: 1000,
+        initialCenterYear: center,
+        initialZoom: zoom,
+      },
+    })
+    const transform = wrapper.get('.river-world').attributes('transform')
+
+    expect(getLastRiverRange()).toMatchObject({
+      startYear: 500,
+      endYear: 1000,
+    })
+    expect(Number.isFinite(getTranslateX(transform))).toBe(true)
+    expect(getScale(transform)).toBeCloseTo(0.12)
+    wrapper.unmount()
+  })
+
   it('渲染 SVG、朝代河流与 1949 顶部轨道', () => {
     const wrapper = mountCanvas()
 
@@ -522,6 +801,7 @@ describe('ChinaRiverCanvas', () => {
         view: window,
       }),
     )
+    await waitForD3DragCleanup()
     flushAnimationFrames()
     await nextTick()
 
@@ -555,6 +835,7 @@ describe('ChinaRiverCanvas', () => {
         view: window,
       }),
     )
+    await waitForD3DragCleanup()
     flushAnimationFrames()
     await nextTick()
     expect(
@@ -599,6 +880,7 @@ describe('ChinaRiverCanvas', () => {
         view: window,
       }),
     )
+    await waitForD3DragCleanup()
     flushAnimationFrames()
     await nextTick()
 
@@ -774,30 +1056,41 @@ describe('ChinaRiverCanvas', () => {
     wrapper.unmount()
   })
 
-  it('卸载时取消 RAF 并移除 wheel 与 pointer 监听', () => {
+  it('卸载时取消 RAF 并以注册时的引用移除直接 pointer 监听', () => {
+    const addListener = vi.spyOn(HTMLElement.prototype, 'addEventListener')
+    const removeListener = vi.spyOn(HTMLElement.prototype, 'removeEventListener')
     const wrapper = mountCanvas()
-    const removeContainerListener = vi.spyOn(
-      wrapper.element,
-      'removeEventListener',
+    const pointerMoveRegistrationIndex = addListener.mock.calls.findIndex(
+      ([type]) => type === 'pointermove',
     )
-    const removeSvgListener = vi.spyOn(
-      wrapper.get('svg').element,
-      'removeEventListener',
+    const pointerLeaveRegistrationIndex = addListener.mock.calls.findIndex(
+      ([type]) => type === 'pointerleave',
     )
+    const pointerMoveCallback =
+      addListener.mock.calls[pointerMoveRegistrationIndex]?.[1]
+    const pointerLeaveCallback =
+      addListener.mock.calls[pointerLeaveRegistrationIndex]?.[1]
 
     wrapper.element.dispatchEvent(
       new PointerEvent('pointermove', { clientX: 300, bubbles: true }),
     )
+    const pendingFrameId = [...rafCallbacks.keys()][0]
+
+    expect(pointerMoveRegistrationIndex).toBeGreaterThanOrEqual(0)
+    expect(pointerLeaveRegistrationIndex).toBeGreaterThanOrEqual(0)
+    expect(pointerMoveCallback).toBeTypeOf('function')
+    expect(pointerLeaveCallback).toBeTypeOf('function')
+    expect(pendingFrameId).toBeDefined()
     wrapper.unmount()
 
-    expect(cancelAnimationFrame).toHaveBeenCalled()
-    expect(
-      removeSvgListener.mock.calls.some(([type]) => type === 'wheel'),
-    ).toBe(true)
-    expect(
-      removeContainerListener.mock.calls.some(
-        ([type]) => type === 'pointermove',
-      ),
-    ).toBe(true)
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(pendingFrameId)
+    expect(removeListener).toHaveBeenCalledWith(
+      'pointermove',
+      pointerMoveCallback,
+    )
+    expect(removeListener).toHaveBeenCalledWith(
+      'pointerleave',
+      pointerLeaveCallback,
+    )
   })
 })

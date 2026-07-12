@@ -2374,6 +2374,48 @@ const RAW_KEY_EVENTS = [
     type: 'culture',
     importance: 8,
   },
+  {
+    id: 'china-event-0267',
+    year: 1689,
+    title: '《尼布楚条约》签订',
+    type: 'politics',
+    importance: 8,
+  },
+  {
+    id: 'china-event-0268',
+    year: 1727,
+    title: '设置驻藏大臣',
+    type: 'politics',
+    importance: 6,
+  },
+  {
+    id: 'china-event-0269',
+    year: 1757,
+    title: '平定准噶尔叛乱',
+    type: 'war',
+    importance: 6,
+  },
+  {
+    id: 'china-event-0270',
+    year: 1762,
+    title: '设置伊犁将军',
+    type: 'politics',
+    importance: 8,
+  },
+  {
+    id: 'china-event-0271',
+    year: 1729,
+    title: '设立军机处',
+    type: 'politics',
+    importance: 6,
+  },
+  {
+    id: 'china-event-0272',
+    year: 1757,
+    title: '限定广州一口通商',
+    type: 'politics',
+    importance: 8,
+  },
 ] as const satisfies readonly IHistoricalEvent[]
 
 const EVENT_TYPE_LABELS: Readonly<Record<HistoricalEventType, string>> = {

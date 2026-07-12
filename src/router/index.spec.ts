@@ -37,4 +37,39 @@ describe('router', () => {
   it('不再提供导入导出路由', () => {
     expect(router.resolve('/data').matched).toHaveLength(0)
   })
+
+  it('注册教材与课程详情懒加载路由并可导航', async () => {
+    const textbook = router.resolve('/textbooks/grade-7-up')
+    const lesson = router.resolve(
+      '/textbooks/grade-7-up/lessons/g7u-lesson-04',
+    )
+
+    expect(textbook.matched[textbook.matched.length - 1]?.path).toBe(
+      '/textbooks/:textbookId',
+    )
+    expect(lesson.matched[lesson.matched.length - 1]?.path).toBe(
+      '/textbooks/:textbookId/lessons/:lessonId',
+    )
+
+    await router.push('/textbooks/grade-7-up')
+    expect(router.currentRoute.value.params.textbookId).toBe('grade-7-up')
+    await router.push('/textbooks/grade-7-up/lessons/g7u-lesson-04')
+    expect(router.currentRoute.value.params.lessonId).toBe('g7u-lesson-04')
+  })
+
+  it('教材路由加入后原有页面仍可解析', () => {
+    const legacyPaths = [
+      '/',
+      '/events',
+      '/china-river',
+      '/people',
+      '/people/person-1',
+      '/cards',
+      '/search',
+    ]
+
+    legacyPaths.forEach((path) => {
+      expect(router.resolve(path).matched).not.toHaveLength(0)
+    })
+  })
 })

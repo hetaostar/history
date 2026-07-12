@@ -13,9 +13,15 @@ import type {
 } from '@/domain/chinaRiverTypes'
 import type { StudyResult } from '@/domain/historyTypes'
 
-const props = defineProps<{
-  event: IHistoricalEvent
-}>()
+const props = withDefaults(
+  defineProps<{
+    event: IHistoricalEvent
+    readOnly?: boolean
+  }>(),
+  {
+    readOnly: false,
+  },
+)
 
 const emit = defineEmits<{
   close: []
@@ -28,7 +34,7 @@ const EVENT_TYPE_LABELS: Record<HistoricalEventType, string> = {
   science: '科技',
 }
 
-const store = useHistoryStore()
+const store = props.readOnly ? undefined : useHistoryStore()
 const isActive = ref(false)
 const titleId = `river-event-detail-title-${++riverEventDetailInstanceId}`
 const { containerRef } = useModalBehavior(isActive, () => emit('close'))
@@ -39,6 +45,8 @@ const description = computed(() => {
 })
 
 const latestStudyResult = computed<StudyResult | undefined>(() => {
+  if (!store || props.readOnly) return undefined
+
   let latestResult: StudyResult | undefined
   let latestCreatedAt = ''
 
@@ -63,6 +71,7 @@ const studyStatus = computed(() => {
 })
 
 function recordStudy(result: StudyResult): void {
+  if (!store || props.readOnly) return
   store.recordStudy('event', props.event.id, result)
 }
 
@@ -110,7 +119,7 @@ onMounted(() => {
         {{ description }}
       </p>
 
-      <footer class="study-panel">
+      <footer v-if="!readOnly && store" class="study-panel">
         <p class="study-question">这件事记住了吗？</p>
         <p class="study-status" data-test="study-status" aria-live="polite">
           {{ studyStatus }}

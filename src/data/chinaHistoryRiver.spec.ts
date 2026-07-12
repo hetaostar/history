@@ -18,7 +18,7 @@ const REQUIRED_DYNASTY_TEXT_FIELDS = [
 describe('chinaHistoryRiver', () => {
   it('完整迁移源文件的数据规模', () => {
     expect(DYNASTIES).toHaveLength(54)
-    expect(KEY_EVENTS).toHaveLength(266)
+    expect(KEY_EVENTS).toHaveLength(272)
   })
 
   it('为每个事件提供唯一且不依赖标题的显式 ID', () => {
@@ -50,6 +50,30 @@ describe('chinaHistoryRiver', () => {
     expect(eventByTitle['新中国成立']).toMatchObject({
       id: 'china-event-0246',
       year: 1949,
+    })
+    expect(eventByTitle['《尼布楚条约》签订']).toMatchObject({
+      id: 'china-event-0267',
+      year: 1689,
+    })
+    expect(eventByTitle['设置驻藏大臣']).toMatchObject({
+      id: 'china-event-0268',
+      year: 1727,
+    })
+    expect(eventByTitle['平定准噶尔叛乱']).toMatchObject({
+      id: 'china-event-0269',
+      year: 1757,
+    })
+    expect(eventByTitle['设置伊犁将军']).toMatchObject({
+      id: 'china-event-0270',
+      year: 1762,
+    })
+    expect(eventByTitle['设立军机处']).toMatchObject({
+      id: 'china-event-0271',
+      year: 1729,
+    })
+    expect(eventByTitle['限定广州一口通商']).toMatchObject({
+      id: 'china-event-0272',
+      year: 1757,
     })
   })
 
@@ -115,7 +139,7 @@ describe('chinaHistoryRiver', () => {
   })
 
   it('为全部内置事件提供非空的本地静态说明', () => {
-    expect(KEY_EVENTS).toHaveLength(266)
+    expect(KEY_EVENTS).toHaveLength(272)
 
     KEY_EVENTS.forEach((event) => {
       expect(event.description.trim()).not.toBe('')

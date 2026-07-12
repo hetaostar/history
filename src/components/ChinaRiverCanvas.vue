@@ -25,10 +25,11 @@ import type {
   IViewport,
 } from '@/domain/chinaRiverTypes'
 
-const DATA_START_YEAR = -2500
-const DATA_END_YEAR = 2025
-const INITIAL_CENTER_YEAR = 900
-const INITIAL_ZOOM = 0.12
+const DEFAULT_START_YEAR = -2500
+const DEFAULT_END_YEAR = 2025
+const DEFAULT_CENTER_YEAR = 900
+const DEFAULT_ZOOM = 0.12
+const MAX_TIMELINE_SPAN_YEARS = 10_000
 const MIN_ZOOM = 0.05
 const MAX_ZOOM = 50
 const EVENT_LANE_HEIGHT = 48
@@ -45,12 +46,70 @@ const props = defineProps<{
   height: number
   dynasties: readonly IDynasty[]
   events: readonly IHistoricalEvent[]
+  startYear?: number
+  endYear?: number
+  initialCenterYear?: number
+  initialZoom?: number
 }>()
 
 const emit = defineEmits<{
   select: [event: IHistoricalEvent]
   'importance-change': [importance: HistoricalEventImportance]
 }>()
+
+function normalizeYear(value: number | undefined): number | undefined {
+  if (!Number.isFinite(value)) return undefined
+  const integer = Math.round(value!)
+  return Number.isSafeInteger(integer) ? integer : undefined
+}
+
+function normalizeYearRange(
+  requestedStart: number | undefined,
+  requestedEnd: number | undefined,
+): { startYear: number; endYear: number } {
+  const normalizedStart = normalizeYear(requestedStart)
+  const normalizedEnd = normalizeYear(requestedEnd)
+  if (normalizedStart === undefined || normalizedEnd === undefined) {
+    return { startYear: DEFAULT_START_YEAR, endYear: DEFAULT_END_YEAR }
+  }
+
+  let startYear = Math.min(normalizedStart, normalizedEnd)
+  let endYear = Math.max(normalizedStart, normalizedEnd)
+  if (startYear === endYear) {
+    if (endYear === Number.MAX_SAFE_INTEGER) {
+      startYear -= 1
+    } else {
+      endYear += 1
+    }
+  }
+
+  const span = endYear - startYear
+  if (!Number.isSafeInteger(span) || span > MAX_TIMELINE_SPAN_YEARS) {
+    return { startYear: DEFAULT_START_YEAR, endYear: DEFAULT_END_YEAR }
+  }
+
+  return { startYear, endYear }
+}
+
+const timelineConfig = computed(() => {
+  const { startYear, endYear } = normalizeYearRange(
+    props.startYear ?? DEFAULT_START_YEAR,
+    props.endYear ?? DEFAULT_END_YEAR,
+  )
+  const requestedCenter =
+    normalizeYear(props.initialCenterYear) ?? DEFAULT_CENTER_YEAR
+  const requestedZoom =
+    Number.isFinite(props.initialZoom) && props.initialZoom! > 0
+      ? props.initialZoom!
+      : DEFAULT_ZOOM
+
+  return {
+    startYear,
+    endYear,
+    centerYear: Math.max(startYear, Math.min(endYear, requestedCenter)),
+    zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, requestedZoom)),
+  }
+})
 
 const container = ref<HTMLElement | null>(null)
 const svg = ref<SVGSVGElement | null>(null)
@@ -83,7 +142,8 @@ function clampHorizontalOffset(offset: number, zoom: number): number {
 
 function yearToWorldX(year: number): number {
   return (
-    ((year - DATA_START_YEAR) / (DATA_END_YEAR - DATA_START_YEAR)) *
+    ((year - timelineConfig.value.startYear) /
+      (timelineConfig.value.endYear - timelineConfig.value.startYear)) *
     getWorldWidth()
   )
 }
@@ -97,23 +157,21 @@ function normalizeViewport(nextViewport: IViewport): IViewport {
 }
 
 function createInitialViewport(): IViewport {
-  const centerWorldX =
-    ((INITIAL_CENTER_YEAR - DATA_START_YEAR) /
-      (DATA_END_YEAR - DATA_START_YEAR)) *
-    (props.width * 8)
+  const centerWorldX = yearToWorldX(timelineConfig.value.centerYear)
 
   return normalizeViewport({
-    x: props.width / 2 - centerWorldX * INITIAL_ZOOM,
+    x: props.width / 2 - centerWorldX * timelineConfig.value.zoom,
     y: 0,
-    k: INITIAL_ZOOM,
+    k: timelineConfig.value.zoom,
   })
 }
 
 function screenXToYear(screenX: number): number {
   const worldX = (screenX - viewport.value.x) / viewport.value.k
   return Math.round(
-    DATA_START_YEAR +
-      (worldX / getWorldWidth()) * (DATA_END_YEAR - DATA_START_YEAR),
+    timelineConfig.value.startYear +
+      (worldX / getWorldWidth()) *
+        (timelineConfig.value.endYear - timelineConfig.value.startYear),
   )
 }
 
@@ -260,8 +318,8 @@ const prcTrackY = computed(() => riverTopY.value + 22)
 
 const riverPoints = computed(() =>
   createRiverDataPoints(props.dynasties, {
-    startYear: DATA_START_YEAR,
-    endYear: DATA_END_YEAR,
+    startYear: timelineConfig.value.startYear,
+    endYear: timelineConfig.value.endYear,
     step: riverSampleStep.value,
   }),
 )
@@ -302,8 +360,14 @@ const dynastyPaths = computed(() => {
 })
 
 const visibleYearRange = computed(() => {
-  const firstYear = Math.max(DATA_START_YEAR, screenXToYear(0))
-  const lastYear = Math.min(DATA_END_YEAR, screenXToYear(props.width))
+  const firstYear = Math.max(
+    timelineConfig.value.startYear,
+    screenXToYear(0),
+  )
+  const lastYear = Math.min(
+    timelineConfig.value.endYear,
+    screenXToYear(props.width),
+  )
   return firstYear <= lastYear
     ? { start: firstYear, end: lastYear }
     : { start: lastYear, end: firstYear }
@@ -367,7 +431,9 @@ const minorTicks = computed(() =>
 )
 
 const eventNodes = computed(() => {
-  const pixelsPerYear = getWorldWidth() / (DATA_END_YEAR - DATA_START_YEAR)
+  const pixelsPerYear =
+    getWorldWidth() /
+    (timelineConfig.value.endYear - timelineConfig.value.startYear)
   const visibleEvents = props.events.filter(
     (event) =>
       event.year >= visibleYearRange.value.start - visibleYearMargin.value &&
@@ -376,7 +442,7 @@ const eventNodes = computed(() => {
   return layoutRiverEvents(visibleEvents, {
     zoom: viewport.value.k,
     pixelsPerYear,
-    originYear: DATA_START_YEAR,
+    originYear: timelineConfig.value.startYear,
     maxVisibleImportance: maxVisibleImportance.value,
     maxLane: maxEventLanes.value,
   }).map((node) => ({
@@ -403,7 +469,14 @@ const worldTransform = computed(
 )
 
 const prcTrackStart = computed(() => yearToScreenX(1949))
-const prcTrackEnd = computed(() => yearToScreenX(DATA_END_YEAR))
+const prcTrackEnd = computed(() =>
+  yearToScreenX(timelineConfig.value.endYear),
+)
+const hasPrcTrack = computed(
+  () =>
+    timelineConfig.value.startYear <= 1949 &&
+    timelineConfig.value.endYear >= 1949,
+)
 
 function initializeZoom(): void {
   if (!svg.value) return
@@ -466,7 +539,15 @@ onMounted(() => {
 })
 
 watch(
-  () => [props.width, props.height] as const,
+  () =>
+    [
+      props.width,
+      props.height,
+      timelineConfig.value.startYear,
+      timelineConfig.value.endYear,
+      timelineConfig.value.centerYear,
+      timelineConfig.value.zoom,
+    ] as const,
   async () => {
     targetViewport = createInitialViewport()
     viewport.value = targetViewport
@@ -607,7 +688,7 @@ onUnmounted(() => {
         class="prc-track"
         :class="{
           'prc-track--visible':
-            prcTrackEnd >= 0 && prcTrackStart <= props.width,
+            hasPrcTrack && prcTrackEnd >= 0 && prcTrackStart <= props.width,
         }"
       >
         <line
