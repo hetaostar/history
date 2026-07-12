@@ -357,10 +357,7 @@ const dynastyBands = computed(() =>
 )
 
 const visibleYearRange = computed(() => {
-  const firstYear = Math.max(
-    timelineConfig.value.startYear,
-    screenXToYear(0),
-  )
+  const firstYear = Math.max(timelineConfig.value.startYear, screenXToYear(0))
   const lastYear = Math.min(
     timelineConfig.value.endYear,
     screenXToYear(props.width),

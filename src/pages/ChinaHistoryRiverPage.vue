@@ -65,9 +65,7 @@ onUnmounted(() => {
     <header class="river-heading">
       <div>
         <RouterLink class="back-link" to="/">返回主页</RouterLink>
-        <p class="eyebrow">
-          教材 · 只读 · {{ textbookEvents.length }} 个事件
-        </p>
+        <p class="eyebrow">教材 · 只读 · {{ textbookEvents.length }} 个事件</p>
         <h1>中华历史长河</h1>
         <p class="description">
           以朝代兴衰为河床，沿时间脉络浏览中华文明的重要事件。
