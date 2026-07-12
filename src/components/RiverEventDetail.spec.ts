@@ -277,22 +277,20 @@ describe('RiverEventDetail', () => {
     expect(store.studyRecords[0]?.result).toBe('remembered')
     expect(wrapper.get('[data-test="study-status"]').text()).toContain('记住了')
     expect(wrapper.get('[role="alert"]').text()).toBe(store.lastError)
-    expect(store.lastError).toBe('本地保存失败，请重试或先导出当前数据。')
+    expect(store.lastError).toBe('本地保存失败，请重试。')
 
     wrapper.unmount()
   })
 
-  it('记录内置事件学习结果时不修改用户 events 或 timelines', async () => {
+  it('记录内置事件学习结果时不修改用户事件', async () => {
     const store = useHistoryStore()
     const originalEvents = JSON.parse(JSON.stringify(store.events))
-    const originalTimelines = JSON.parse(JSON.stringify(store.timelines))
     const wrapper = mountDetail()
 
     await wrapper.get('[data-test="remembered"]').trigger('click')
     await wrapper.get('[data-test="forgotten"]').trigger('click')
 
     expect(store.events).toEqual(originalEvents)
-    expect(store.timelines).toEqual(originalTimelines)
     wrapper.unmount()
   })
 })

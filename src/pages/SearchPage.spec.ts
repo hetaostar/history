@@ -11,7 +11,7 @@ function createTestRouter() {
     routes: [
       { path: '/', component: { template: '<div />' } },
       { path: '/people/:id', component: { template: '<div />' } },
-      { path: '/timelines/:id', component: { template: '<div />' } },
+      { path: '/events', component: { template: '<div />' } },
     ],
   })
 }
@@ -88,23 +88,12 @@ describe('SearchPage', () => {
     expect(results.text()).toContain('孙中山')
   })
 
-  it('shows matched timelines, events and cards in their groups', async () => {
+  it('shows matched events and cards without a timeline group', async () => {
     vi.useFakeTimers()
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useHistoryStore()
-    store.createTimeline({
-      name: '中国近代史',
-      description: '近代事件梳理',
-      tags: ['高考'],
-    })
-    const timeline = store.createTimeline({
-      name: '古代史',
-      description: '',
-      tags: [],
-    })
-    store.createEvent({
-      timelineId: timeline.id,
+    const event = store.createEvent({
       timeLabel: '前221年',
       title: '秦统一六国',
       hint: '',
@@ -134,5 +123,11 @@ describe('SearchPage', () => {
 
     expect(results.text()).toContain('秦统一六国')
     expect(results.text()).toContain('秦朝建立于哪一年')
+    expect(results.text()).not.toContain('时间线')
+    expect(
+      results
+        .get(`a[href="/events?event=${event.id}"]`)
+        .attributes('href'),
+    ).toBe(`/events?event=${event.id}`)
   })
 })

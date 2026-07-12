@@ -62,9 +62,7 @@ onUnmounted(() => {
   <section class="china-river-page">
     <header class="river-heading">
       <div>
-        <RouterLink class="back-link" to="/timelines">
-          返回时间线列表
-        </RouterLink>
+        <RouterLink class="back-link" to="/">返回主页</RouterLink>
         <p class="eyebrow">内置 · 只读 · {{ KEY_EVENTS.length }} 个事件</p>
         <h1>中华历史长河</h1>
         <p class="description">

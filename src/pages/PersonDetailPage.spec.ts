@@ -11,7 +11,7 @@ function createTestRouter() {
     routes: [
       { path: '/', component: { template: '<div />' } },
       { path: '/people/:personId', component: PersonDetailPage },
-      { path: '/timelines/:timelineId', component: { template: '<div />' } },
+      { path: '/events', component: { template: '<div />' } },
     ],
   })
 }
@@ -79,13 +79,7 @@ describe('PersonDetailPage', () => {
       achievements: '',
       keywords: [],
     })
-    const timeline = store.createTimeline({
-      name: '近代史',
-      description: '',
-      tags: [],
-    })
     store.createEvent({
-      timelineId: timeline.id,
       timeLabel: '1898年',
       title: '戊戌变法',
       hint: '',
@@ -95,7 +89,6 @@ describe('PersonDetailPage', () => {
       personIds: [person.id],
     })
     store.createEvent({
-      timelineId: timeline.id,
       timeLabel: '1911年',
       title: '辛亥革命',
       hint: '',
@@ -130,12 +123,6 @@ describe('PersonDetailPage', () => {
       achievements: '',
       keywords: [],
     })
-    const timeline = store.createTimeline({
-      name: '近代史',
-      description: '',
-      tags: [],
-    })
-
     const router = createTestRouter()
     await router.push(`/people/${person.id}`)
     await router.isReady()
@@ -144,9 +131,6 @@ describe('PersonDetailPage', () => {
       global: { plugins: [pinia, router] },
     })
 
-    // 选择时间线
-    await wrapper.get('select').setValue(timeline.id)
-    // 填写时间和标题
     await wrapper.get('input[placeholder="例如：1911年"]').setValue('1898年')
     await wrapper.get('input[placeholder="事件标题"]').setValue('戊戌变法')
     // 提交表单
@@ -157,9 +141,10 @@ describe('PersonDetailPage', () => {
     )
     expect(createdEvent).toBeDefined()
     expect(createdEvent!.personIds).toContain(person.id)
+    expect(createdEvent).not.toHaveProperty('timelineId')
   })
 
-  it('未选时间线时显示错误"请选择时间线。"', async () => {
+  it('关联事件详情提供统一事件页编辑入口', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useHistoryStore()
@@ -176,15 +161,23 @@ describe('PersonDetailPage', () => {
     await router.push(`/people/${person.id}`)
     await router.isReady()
 
+    const event = store.createEvent({
+      timeLabel: '1898年',
+      title: '戊戌变法',
+      hint: '',
+      summary: '',
+      detail: '',
+      keywords: [],
+      personIds: [person.id],
+    })
     const wrapper = mount(PersonDetailPage, {
       global: { plugins: [pinia, router] },
     })
+    await wrapper.get('.event-card-button').trigger('click')
 
-    await wrapper.get('input[placeholder="例如：1911年"]').setValue('1898年')
-    await wrapper.get('input[placeholder="事件标题"]').setValue('戊戌变法')
-    await wrapper.get('form.event-form').trigger('submit')
-
-    expect(wrapper.text()).toContain('请选择时间线。')
-    expect(store.events).toHaveLength(0)
+    expect(wrapper.get('.event-detail a').attributes('href')).toBe(
+      `/events?event=${event.id}`,
+    )
+    expect(wrapper.text()).not.toContain('时间线')
   })
 })

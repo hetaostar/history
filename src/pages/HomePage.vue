@@ -14,12 +14,12 @@ const featureEntries = computed(() => [
     action: '整理人物',
   },
   {
-    title: '时间线',
-    route: '/timelines',
-    label: '事件脉络',
-    count: store.timelines.length,
-    copy: '按朝代、专题或考试范围串联事件，形成可背诵的顺序。',
-    action: '查看时间线',
+    title: '事件',
+    route: '/events',
+    label: '历史事件',
+    count: store.events.length,
+    copy: '按时间整理具体历史事件，形成可背诵的顺序。',
+    action: '查看事件',
   },
   {
     title: '卡片背诵',
@@ -42,7 +42,6 @@ const featureEntries = computed(() => [
 const totalItems = computed(
   () =>
     store.people.length +
-    store.timelines.length +
     store.events.length +
     store.cards.length,
 )
@@ -67,8 +66,8 @@ const latestPeople = computed(() =>
         <p class="eyebrow">History memory desk</p>
         <h1 id="home-title">把零散史料，收成可背诵的秩序。</h1>
         <p>
-          用人物作锚点，用时间线搭骨架，再把高频考点拆成卡片。首页已经把
-          “人物”“时间线”“卡片背诵”“搜索” 放在同一个学习入口里。
+          用人物作锚点，用事件搭骨架，再把高频考点拆成卡片。首页已经把
+          “人物”“事件”“卡片背诵”“搜索” 放在同一个学习入口里。
         </p>
         <div class="hero-actions" aria-label="首页主操作">
           <RouterLink class="primary-link" to="/cards">抽一张卡片</RouterLink>
@@ -83,7 +82,6 @@ const latestPeople = computed(() =>
         <div class="slip-grid">
           <span>{{ store.people.length }} 人物</span>
           <span>{{ store.events.length }} 事件</span>
-          <span>{{ store.timelines.length }} 时间线</span>
           <span>{{ store.cards.length }} 卡片</span>
         </div>
       </aside>
@@ -108,10 +106,10 @@ const latestPeople = computed(() =>
       <article class="desk-panel">
         <div class="section-heading">
           <span>最近事件</span>
-          <RouterLink to="/timelines">进入时间线</RouterLink>
+          <RouterLink to="/events">查看全部事件</RouterLink>
         </div>
         <p v-if="latestEvents.length === 0" class="empty-note">
-          还没有事件。先创建一条时间线，再补充需要背诵的节点。
+          还没有事件。先添加一个需要背诵的事件。
         </p>
         <ol v-else class="recent-list">
           <li v-for="event in latestEvents" :key="event.id">

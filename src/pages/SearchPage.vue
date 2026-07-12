@@ -12,25 +12,17 @@ const hasQuery = computed(() => query.value.trim().length > 0)
 const hasResults = computed(() => {
   return (
     results.value.people.length > 0 ||
-    results.value.timelines.length > 0 ||
     results.value.events.length > 0 ||
     results.value.cards.length > 0
   )
 })
-
-function getTimelineName(timelineId: string): string {
-  return (
-    store.timelines.find((timeline) => timeline.id === timelineId)?.name ??
-    '未找到所属时间线'
-  )
-}
 </script>
 
 <template>
   <section class="page">
     <header class="page-header">
       <h1>搜索</h1>
-      <p>检索人物、时间线、历史事件和背诵卡片。</p>
+      <p>检索人物、历史事件和背诵卡片。</p>
     </header>
 
     <section class="panel search-panel">
@@ -67,38 +59,17 @@ function getTimelineName(timelineId: string): string {
       </section>
 
       <section class="result-group">
-        <h2>时间线</h2>
-        <p v-if="results.timelines.length === 0" class="empty-message">
-          没有匹配时间线。
-        </p>
-        <RouterLink
-          v-for="timeline in results.timelines"
-          :key="timeline.id"
-          class="result-card result-link"
-          :to="`/timelines/${timeline.id}`"
-        >
-          <strong>{{ timeline.name }}</strong>
-          <span v-if="timeline.description">{{ timeline.description }}</span>
-          <span v-if="timeline.tags.length" class="tag-list">
-            <span v-for="tag in timeline.tags" :key="tag" class="tag">
-              {{ tag }}
-            </span>
-          </span>
-        </RouterLink>
-      </section>
-
-      <section class="result-group">
         <h2>历史事件</h2>
         <p v-if="results.events.length === 0" class="empty-message">
           没有匹配事件。
         </p>
-        <article
+        <RouterLink
           v-for="event in results.events"
           :key="event.id"
-          class="result-card"
+          class="result-card result-link"
+          :to="`/events?event=${event.id}`"
         >
           <strong>{{ event.timeLabel }}：{{ event.title }}</strong>
-          <span>所属时间线：{{ getTimelineName(event.timelineId) }}</span>
           <p v-if="event.summary">{{ event.summary }}</p>
           <p v-if="event.detail">{{ event.detail }}</p>
           <span v-if="event.keywords.length" class="tag-list">
@@ -106,7 +77,7 @@ function getTimelineName(timelineId: string): string {
               {{ keyword }}
             </span>
           </span>
-        </article>
+        </RouterLink>
       </section>
 
       <section class="result-group">

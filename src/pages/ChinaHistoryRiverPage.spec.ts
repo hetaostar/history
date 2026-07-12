@@ -77,6 +77,15 @@ describe('ChinaHistoryRiverPage', () => {
     )
   })
 
+  it('作为独立页面返回主页而不是时间线列表', () => {
+    const wrapper = mountPage()
+    const backLink = wrapper.get('.back-link')
+
+    expect(backLink.attributes('href')).toBe('/')
+    expect(backLink.text()).toBe('返回主页')
+    expect(wrapper.text()).not.toContain('时间线列表')
+  })
+
   afterEach(() => {
     document.body.innerHTML = ''
     vi.restoreAllMocks()

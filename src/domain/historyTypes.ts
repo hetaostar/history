@@ -1,18 +1,8 @@
 export type StudyTargetType = 'person' | 'event' | 'card'
 export type StudyResult = 'remembered' | 'forgotten'
 
-export interface ITimeline {
-  id: string
-  name: string
-  description: string
-  tags: string[]
-  createdAt: string
-  updatedAt: string
-}
-
 export interface IHistoryEvent {
   id: string
-  timelineId: string
   timeLabel: string
   title: string
   hint: string
@@ -58,7 +48,6 @@ export interface IStudyRecord {
 
 export interface IHistoryData {
   version: number
-  timelines: ITimeline[]
   events: IHistoryEvent[]
   people: IPerson[]
   cards: IStudyCard[]

@@ -12,7 +12,6 @@ const selectedEventId = ref('')
 const errorMessage = ref('')
 
 const eventForm = reactive({
-  timelineId: '',
   timeLabel: '',
   title: '',
   hint: '',
@@ -40,20 +39,12 @@ function selectEvent(event: IHistoryEvent) {
 }
 
 function createRelatedEvent() {
-  const timelineId = eventForm.timelineId
-
-  if (!timelineId) {
-    errorMessage.value = '请选择时间线。'
-    return
-  }
-
   if (!eventForm.timeLabel.trim() || !eventForm.title.trim()) {
     errorMessage.value = '请填写时间和事件标题。'
     return
   }
 
   const event = store.createEvent({
-    timelineId,
     timeLabel: eventForm.timeLabel.trim(),
     title: eventForm.title.trim(),
     hint: eventForm.hint.trim(),
@@ -69,7 +60,6 @@ function createRelatedEvent() {
 }
 
 function resetEventForm() {
-  eventForm.timelineId = ''
   eventForm.timeLabel = ''
   eventForm.title = ''
   eventForm.hint = ''
@@ -119,20 +109,6 @@ function parseCommaSeparatedText(value: string): string[] {
     <form class="panel event-form" @submit.prevent="createRelatedEvent">
       <h2>新增相关事件</h2>
       <p class="form-help">新事件会自动关联当前人物。</p>
-
-      <label>
-        所属时间线
-        <select v-model="eventForm.timelineId">
-          <option value="" disabled>请选择时间线</option>
-          <option
-            v-for="timeline in store.timelines"
-            :key="timeline.id"
-            :value="timeline.id"
-          >
-            {{ timeline.name }}
-          </option>
-        </select>
-      </label>
 
       <label>
         时间
@@ -191,7 +167,7 @@ function parseCommaSeparatedText(value: string): string[] {
     <section class="panel related-events">
       <h2>关联事件</h2>
       <p v-if="relatedEvents.length === 0" class="empty-message">
-        暂时没有关联事件。可以在时间线事件中填写这个人物 ID 建立关联。
+        暂时没有关联事件。可以在这里新增与该人物相关的事件。
       </p>
 
       <button
@@ -230,9 +206,9 @@ function parseCommaSeparatedText(value: string): string[] {
       </div>
       <RouterLink
         class="back-link"
-        :to="`/timelines/${selectedEvent.timelineId}`"
+        :to="`/events?event=${selectedEvent.id}`"
       >
-        前往时间线详情编辑
+        前往事件页编辑
       </RouterLink>
     </article>
   </section>

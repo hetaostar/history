@@ -3,16 +3,14 @@ import type {
   IHistoryEvent,
   IPerson,
   IStudyCard,
-  ITimeline,
 } from './historyTypes'
 
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 const LEAKED_FORMAT_KEY_PREFIX_RE =
   /^(?:(?:[a-z][a-z_]*_)?format\.[a-z][a-z_]*\s*)+/i
 
 const REQUIRED_COLLECTIONS: Array<keyof Omit<IHistoryData, 'version'>> = [
-  'timelines',
   'events',
   'people',
   'cards',
@@ -22,7 +20,6 @@ const REQUIRED_COLLECTIONS: Array<keyof Omit<IHistoryData, 'version'>> = [
 export function createEmptyHistoryData(): IHistoryData {
   return {
     version: CURRENT_SCHEMA_VERSION,
-    timelines: [],
     events: [],
     people: [],
     cards: [],
@@ -46,14 +43,16 @@ export function parseHistoryData(value: unknown): IHistoryData {
     }
   }
 
-  const timelines = value.timelines as unknown[]
+  if (version < 2 && !Array.isArray(value.timelines)) {
+    throw new Error('导入文件格式不正确')
+  }
+
   const events = value.events as unknown[]
   const people = value.people as unknown[]
   const cards = value.cards as unknown[]
   const studyRecords = value.studyRecords as unknown[]
 
   if (
-    !timelines.every(isTimeline) ||
     !events.every(isHistoryEvent) ||
     !people.every(isPerson) ||
     !cards.every(isStudyCard) ||
@@ -62,13 +61,8 @@ export function parseHistoryData(value: unknown): IHistoryData {
     throw new Error('导入文件格式不正确')
   }
 
-  // v0 (legacy, no version field) → v1 is a shape no-op: just inject version.
-  // Future v1 → v2 migrations would dispatch on `version` here.
   return {
     version: CURRENT_SCHEMA_VERSION,
-    timelines: timelines.map((timeline) =>
-      normalizeTimeline(timeline as ITimeline),
-    ),
     events: events.map((event) => normalizeHistoryEvent(event as IHistoryEvent)),
     people: people.map((person) => normalizePerson(person as IPerson)),
     cards: cards.map((card) => normalizeStudyCard(card as IStudyCard)),
@@ -76,20 +70,13 @@ export function parseHistoryData(value: unknown): IHistoryData {
   } as IHistoryData
 }
 
-export function normalizeTimeline(value: ITimeline): ITimeline {
-  return {
-    ...value,
-    name: removeLeakedFormatKeyPrefix(value.name),
-    description: removeLeakedFormatKeyPrefix(value.description),
-    tags: value.tags.map(removeLeakedFormatKeyPrefix),
-  }
-}
-
 export function normalizeHistoryEvent(value: IHistoryEvent): IHistoryEvent {
   const event = { ...(value as object) } as IHistoryEvent & {
     sortValue?: unknown
+    timelineId?: unknown
   }
   delete event.sortValue
+  delete event.timelineId
 
   return {
     ...event,
@@ -134,23 +121,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function isTimeline(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    isString(value.id) &&
-    isString(value.name) &&
-    isString(value.description) &&
-    isStringArray(value.tags) &&
-    isString(value.createdAt) &&
-    isString(value.updatedAt)
-  )
-}
-
 function isHistoryEvent(value: unknown): boolean {
   return (
     isRecord(value) &&
     isString(value.id) &&
-    isString(value.timelineId) &&
+    (!('timelineId' in value) || isString(value.timelineId)) &&
     isString(value.timeLabel) &&
     isString(value.title) &&
     isString(value.hint) &&

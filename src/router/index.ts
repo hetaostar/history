@@ -8,17 +8,25 @@ export const router = createRouter({
       component: () => import('@/pages/HomePage.vue'),
     },
     {
-      path: '/timelines',
-      component: () => import('@/pages/TimelineListPage.vue'),
+      path: '/events',
+      component: () => import('@/pages/EventListPage.vue'),
     },
     {
-      path: '/timelines/china-river',
+      path: '/china-river',
       name: 'china-history-river',
       component: () => import('@/pages/ChinaHistoryRiverPage.vue'),
     },
     {
+      path: '/timelines/china-river',
+      redirect: '/china-river',
+    },
+    {
+      path: '/timelines',
+      redirect: '/events',
+    },
+    {
       path: '/timelines/:timelineId',
-      component: () => import('@/pages/TimelineDetailPage.vue'),
+      redirect: '/events',
     },
     {
       path: '/people',
@@ -35,10 +43,6 @@ export const router = createRouter({
     {
       path: '/search',
       component: () => import('@/pages/SearchPage.vue'),
-    },
-    {
-      path: '/data',
-      component: () => import('@/pages/ImportExportPage.vue'),
     },
   ],
 })

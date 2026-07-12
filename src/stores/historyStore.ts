@@ -6,7 +6,6 @@ import {
   normalizeHistoryEvent,
   normalizePerson,
   normalizeStudyCard,
-  normalizeTimeline,
   parseHistoryData,
 } from '@/domain/historySchema'
 import { safeLocalStorage } from '@/domain/safeLocalStorage'
@@ -16,15 +15,13 @@ import type {
   IPerson,
   IStudyCard,
   IStudyRecord,
-  ITimeline,
   StudyResult,
   StudyTargetType,
 } from '@/domain/historyTypes'
 
 const STORAGE_KEY = 'history-memorization:data'
-const SAVE_ERROR_MESSAGE = '本地保存失败，请重试或先导出当前数据。'
+const SAVE_ERROR_MESSAGE = '本地保存失败，请重试。'
 
-type TimelineInput = Pick<ITimeline, 'name' | 'description' | 'tags'>
 type EventInput = Omit<IHistoryEvent, 'id' | 'createdAt' | 'updatedAt'>
 type PersonInput = Omit<IPerson, 'id' | 'createdAt' | 'updatedAt'>
 type CardInput = Omit<IStudyCard, 'id' | 'createdAt' | 'updatedAt' | 'hint'> &
@@ -42,7 +39,18 @@ export const useHistoryStore = defineStore('history', {
       return { ...createEmptyHistoryData(), lastError: '' }
     }
     try {
-      return { ...parseHistoryData(JSON.parse(raw)), lastError: '' }
+      const storedData = JSON.parse(raw) as { version?: unknown }
+      const parsed = parseHistoryData(storedData)
+      const requiresMigration =
+        storedData.version !== CURRENT_SCHEMA_VERSION
+      const migrationSaved =
+        !requiresMigration ||
+        safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
+
+      return {
+        ...parsed,
+        lastError: migrationSaved ? '' : SAVE_ERROR_MESSAGE,
+      }
     } catch (error) {
       console.warn('Failed to load history data:', error)
       return {
@@ -51,56 +59,15 @@ export const useHistoryStore = defineStore('history', {
       }
     }
   },
+  getters: {
+    sortedEvents(state): IHistoryEvent[] {
+      return [...state.events].sort(
+        (a, b) =>
+          getTimeSortValue(a.timeLabel) - getTimeSortValue(b.timeLabel),
+      )
+    },
+  },
   actions: {
-    createTimeline(input: TimelineInput): ITimeline {
-      const timeline = normalizeTimeline({
-        id: createId(),
-        ...input,
-        createdAt: now(),
-        updatedAt: now(),
-      })
-      this.timelines.push(timeline)
-      this.persist()
-      return timeline
-    },
-    updateTimeline(id: string, input: TimelineInput): ITimeline | undefined {
-      const timeline = this.timelines.find((item) => item.id === id)
-      if (!timeline) {
-        return undefined
-      }
-
-      Object.assign(
-        timeline,
-        normalizeTimeline({
-          ...timeline,
-          ...input,
-          updatedAt: now(),
-        }),
-      )
-      this.persist()
-      return timeline
-    },
-    deleteTimeline(id: string): boolean {
-      const eventIds = this.events
-        .filter((event) => event.timelineId === id)
-        .map((event) => event.id)
-      const eventIdSet = new Set(eventIds)
-      const initialLength = this.timelines.length
-
-      this.timelines = this.timelines.filter((timeline) => timeline.id !== id)
-      this.events = this.events.filter((event) => event.timelineId !== id)
-      this.cards.forEach((card) => {
-        card.eventIds = card.eventIds.filter(
-          (eventId) => !eventIdSet.has(eventId),
-        )
-      })
-      this.studyRecords = this.studyRecords.filter(
-        (record) =>
-          record.targetType !== 'event' || !eventIdSet.has(record.targetId),
-      )
-      this.persist()
-      return this.timelines.length !== initialLength
-    },
     createEvent(input: EventInput): IHistoryEvent {
       const event = normalizeHistoryEvent({
         id: createId(),
@@ -248,32 +215,11 @@ export const useHistoryStore = defineStore('history', {
       this.persist()
       return record
     },
-    replaceAll(data: unknown): void {
-      const parsed = parseHistoryData(data)
-      this.version = parsed.version
-      this.timelines = parsed.timelines
-      this.events = parsed.events
-      this.people = parsed.people
-      this.cards = parsed.cards
-      this.studyRecords = parsed.studyRecords
-      this.persist()
-    },
-    exportSnapshot(): IHistoryData {
-      return {
-        version: CURRENT_SCHEMA_VERSION,
-        timelines: this.timelines,
-        events: this.events,
-        people: this.people,
-        cards: this.cards,
-        studyRecords: this.studyRecords,
-      }
-    },
     persist(): boolean {
       const ok = safeLocalStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
           version: CURRENT_SCHEMA_VERSION,
-          timelines: this.timelines,
           events: this.events,
           people: this.people,
           cards: this.cards,
@@ -287,14 +233,6 @@ export const useHistoryStore = defineStore('history', {
       }
       return ok
     },
-    eventsByTimeline(timelineId: string): IHistoryEvent[] {
-      return this.events
-        .filter((event) => event.timelineId === timelineId)
-        .sort(
-          (a, b) =>
-            getTimeSortValue(a.timeLabel) - getTimeSortValue(b.timeLabel),
-        )
-    },
     eventsByPerson(personId: string): IHistoryEvent[] {
       return this.events.filter((event) => event.personIds.includes(personId))
     },
@@ -304,13 +242,10 @@ export const useHistoryStore = defineStore('history', {
         values.some((value) => value.toLowerCase().includes(keyword))
 
       if (!keyword) {
-        return { timelines: [], events: [], people: [], cards: [] }
+        return { events: [], people: [], cards: [] }
       }
 
       return {
-        timelines: this.timelines.filter((timeline) =>
-          includes([timeline.name, timeline.description, ...timeline.tags]),
-        ),
         events: this.events.filter((event) =>
           includes([
             event.timeLabel,

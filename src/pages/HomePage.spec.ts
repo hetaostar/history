@@ -12,8 +12,7 @@ function createTestRouter() {
       { path: '/', component: { template: '<div />' } },
       { path: '/people', component: { template: '<div />' } },
       { path: '/people/:personId', component: { template: '<div />' } },
-      { path: '/timelines', component: { template: '<div />' } },
-      { path: '/timelines/:timelineId', component: { template: '<div />' } },
+      { path: '/events', component: { template: '<div />' } },
       { path: '/cards', component: { template: '<div />' } },
       { path: '/search', component: { template: '<div />' } },
     ],
@@ -33,9 +32,8 @@ describe('HomePage', () => {
 
     const emptyNotes = wrapper.findAll('.empty-note')
     expect(emptyNotes.length).toBeGreaterThanOrEqual(2)
-    expect(wrapper.text()).toContain(
-      '还没有事件。先创建一条时间线，再补充需要背诵的节点。',
-    )
+    expect(wrapper.text()).toContain('还没有事件。先添加一个需要背诵的事件。')
+    expect(wrapper.text()).not.toContain('时间线')
     expect(wrapper.text()).toContain(
       '还没有人物。把重要人物的生平、主张和关键词先归档。',
     )
@@ -45,15 +43,8 @@ describe('HomePage', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useHistoryStore()
-    const timeline = store.createTimeline({
-      name: '中国近代史',
-      description: '',
-      tags: [],
-    })
-
     for (let i = 0; i < 5; i += 1) {
       store.createEvent({
-        timelineId: timeline.id,
         timeLabel: `184${i}年`,
         title: `事件${i}`,
         hint: '',
@@ -107,7 +98,7 @@ describe('HomePage', () => {
 
     const hrefs = featureCards.map((card) => card.attributes('href'))
     expect(hrefs).toContain('/people')
-    expect(hrefs).toContain('/timelines')
+    expect(hrefs).toContain('/events')
     expect(hrefs).toContain('/cards')
     expect(hrefs).toContain('/search')
   })

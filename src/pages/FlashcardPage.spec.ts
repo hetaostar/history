@@ -165,13 +165,7 @@ describe('FlashcardPage', () => {
       achievements: '',
       keywords: [],
     })
-    const timeline = store.createTimeline({
-      name: '中国近代史',
-      description: '',
-      tags: [],
-    })
     const event = store.createEvent({
-      timelineId: timeline.id,
       timeLabel: '1898年',
       title: '戊戌变法',
       hint: '',
