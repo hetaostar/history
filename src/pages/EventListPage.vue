@@ -1,15 +1,35 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  type ComponentPublicInstance,
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EntityCard from '@/components/EntityCard.vue'
+import HistoryPeriodNavigation from '@/components/HistoryPeriodNavigation.vue'
 import RiverEventDetail from '@/components/RiverEventDetail.vue'
 import { KEY_EVENTS } from '@/data/chinaHistoryRiver'
 import { formatHistoricalYear } from '@/domain/chinaRiverLayout'
+import {
+  groupHistoricalEventsByPeriod,
+  HISTORY_PERIODS,
+} from '@/domain/historyPeriods'
 
 const route = useRoute()
 const router = useRouter()
+const periodSections = new Map<string, HTMLElement>()
+const activePeriodId = ref<string>(HISTORY_PERIODS[0].id)
+const appHeaderHeight = ref(0)
+let periodObserver: IntersectionObserver | null = null
+let appHeaderObserver: ResizeObserver | null = null
 
-const events = computed(() => [...KEY_EVENTS].sort((a, b) => a.year - b.year))
+const periodGroups = computed(() => groupHistoricalEventsByPeriod(KEY_EVENTS))
+const events = computed(() =>
+  periodGroups.value.flatMap((group) => group.events),
+)
 
 const selectedEvent = computed(
   () =>
@@ -21,12 +41,138 @@ const selectedEvent = computed(
 function closeEventDetail(): void {
   const query = { ...route.query }
   delete query.event
-  void router.replace({ query })
+  void router.replace({ query, hash: route.hash })
 }
+
+function formatPeriodRange(startYear: number, endYear: number): string {
+  return `${formatHistoricalYear(startYear)}—${formatHistoricalYear(endYear)}`
+}
+
+function setPeriodSectionRef(
+  periodId: string,
+  element: Element | ComponentPublicInstance | null,
+): void {
+  if (element instanceof HTMLElement) {
+    periodSections.set(periodId, element)
+    return
+  }
+
+  periodSections.delete(periodId)
+}
+
+function getPeriodIdFromHash(hash: string): string | null {
+  const prefix = '#period-'
+  if (!hash.startsWith(prefix)) {
+    return null
+  }
+
+  const periodId = hash.slice(prefix.length)
+  return HISTORY_PERIODS.some((period) => period.id === periodId)
+    ? periodId
+    : null
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
+
+async function scrollToPeriod(
+  periodId: string,
+  behavior: ScrollBehavior,
+  updateHash = true,
+): Promise<void> {
+  const section = periodSections.get(periodId)
+  if (!section) {
+    return
+  }
+
+  activePeriodId.value = periodId
+  if (updateHash) {
+    await router.replace({
+      query: route.query,
+      hash: `#period-${periodId}`,
+    })
+  }
+  await nextTick()
+  section.scrollIntoView({
+    behavior:
+      behavior === 'smooth' && prefersReducedMotion() ? 'auto' : behavior,
+    block: 'start',
+  })
+}
+
+function selectPeriod(periodId: string): void {
+  void scrollToPeriod(periodId, 'smooth')
+}
+
+function observePeriodSections(): void {
+  if (typeof IntersectionObserver === 'undefined') {
+    return
+  }
+
+  periodObserver = new IntersectionObserver(
+    (entries) => {
+      const currentEntry = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0]
+      const periodId = (currentEntry?.target as HTMLElement | undefined)?.dataset
+        .periodId
+
+      if (periodId) {
+        activePeriodId.value = periodId
+      }
+    },
+    {
+      rootMargin: '-96px 0px -60% 0px',
+      threshold: [0, 0.25, 0.5, 0.75, 1],
+    },
+  )
+
+  periodSections.forEach((section) => periodObserver?.observe(section))
+}
+
+function updateAppHeaderHeight(): void {
+  const appHeader = document.querySelector<HTMLElement>('.app-header')
+  appHeaderHeight.value = Math.ceil(
+    appHeader?.getBoundingClientRect().height ?? 0,
+  )
+}
+
+function observeAppHeader(): void {
+  updateAppHeaderHeight()
+  window.addEventListener('resize', updateAppHeaderHeight)
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const appHeader = document.querySelector<HTMLElement>('.app-header')
+    if (appHeader) {
+      appHeaderObserver = new ResizeObserver(updateAppHeaderHeight)
+      appHeaderObserver.observe(appHeader)
+    }
+  }
+}
+
+onMounted(async () => {
+  await nextTick()
+  observeAppHeader()
+  const initialPeriodId = getPeriodIdFromHash(route.hash)
+  if (initialPeriodId) {
+    await scrollToPeriod(initialPeriodId, 'auto', false)
+  }
+  observePeriodSections()
+})
+
+onBeforeUnmount(() => {
+  periodObserver?.disconnect()
+  appHeaderObserver?.disconnect()
+  window.removeEventListener('resize', updateAppHeaderHeight)
+})
 </script>
 
 <template>
-  <section class="event-page">
+  <section
+    class="event-page"
+    :style="{ '--app-header-height': `${appHeaderHeight}px` }"
+  >
     <header class="page-header">
       <p class="eyebrow">China history archive</p>
       <h1>事件</h1>
@@ -46,22 +192,69 @@ function closeEventDetail(): void {
         <span class="year-range">前2070年—2020年</span>
       </div>
 
-      <div class="event-grid">
-        <RouterLink
-          v-for="event in events"
-          :key="event.id"
-          class="event-card-link"
-          :data-test="`event-card-${event.id}`"
-          :to="{ query: { ...route.query, event: event.id } }"
-          replace
-          :aria-label="`查看${event.title}详情`"
-        >
-          <EntityCard
-            :title="event.title"
-            :subtitle="formatHistoricalYear(event.year)"
-            :summary="event.description"
+      <div class="catalog-layout">
+        <div class="period-groups">
+          <section
+            v-for="group in periodGroups"
+            :id="`period-${group.period.id}`"
+            :key="group.period.id"
+            :ref="
+              (element) => setPeriodSectionRef(group.period.id, element)
+            "
+            class="period-section"
+            :data-period-id="group.period.id"
+            :data-test="`period-section-${group.period.id}`"
+            :aria-labelledby="`period-title-${group.period.id}`"
+          >
+            <header class="period-heading">
+              <div>
+                <p class="period-range">
+                  {{
+                    formatPeriodRange(
+                      group.period.startYear,
+                      group.period.endYear,
+                    )
+                  }}
+                </p>
+                <h3 :id="`period-title-${group.period.id}`">
+                  {{ group.period.name }}
+                </h3>
+              </div>
+              <span class="period-count">{{ group.events.length }} 件</span>
+            </header>
+
+            <div v-if="group.events.length" class="event-grid">
+              <RouterLink
+                v-for="event in group.events"
+                :key="event.id"
+                class="event-card-link"
+                :data-test="`event-card-${event.id}`"
+                :to="{
+                  query: { ...route.query, event: event.id },
+                  hash: route.hash,
+                }"
+                replace
+                :aria-label="`查看${event.title}详情`"
+              >
+                <EntityCard
+                  :title="event.title"
+                  :subtitle="formatHistoricalYear(event.year)"
+                  :summary="event.description"
+                />
+              </RouterLink>
+            </div>
+            <p v-else class="period-empty">暂无收录事件</p>
+          </section>
+        </div>
+
+        <aside class="period-navigation-column">
+          <HistoryPeriodNavigation
+            data-test="period-navigation"
+            :periods="HISTORY_PERIODS"
+            :active-period-id="activePeriodId"
+            @select="selectPeriod"
           />
-        </RouterLink>
+        </aside>
       </div>
     </section>
 
@@ -150,6 +343,102 @@ function closeEventDetail(): void {
   letter-spacing: 0.06em;
 }
 
+.catalog-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 164px;
+  gap: clamp(20px, 3vw, 34px);
+  align-items: start;
+}
+
+.period-groups {
+  display: grid;
+  gap: clamp(42px, 7vw, 68px);
+  min-width: 0;
+}
+
+.period-section {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  scroll-margin-top: 108px;
+}
+
+.period-heading {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  align-items: end;
+  justify-content: space-between;
+  padding-top: 22px;
+}
+
+.period-heading::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  content: '';
+  background:
+    linear-gradient(
+      90deg,
+      var(--cinnabar) 0 56px,
+      color-mix(in srgb, var(--muted-ink) 20%, transparent) 56px 100%
+    );
+}
+
+.period-heading::after {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  content: '';
+  background: var(--cinnabar);
+  border-radius: 50%;
+}
+
+.period-heading h3 {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 4vw, 38px);
+  line-height: 1.1;
+}
+
+.period-range,
+.period-count {
+  color: var(--bronze);
+  font-family: var(--font-utility);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.period-range {
+  margin: 0;
+}
+
+.period-count {
+  flex: 0 0 auto;
+  padding-bottom: 4px;
+}
+
+.period-empty {
+  padding: 22px;
+  margin: 0;
+  color: var(--muted-ink);
+  text-align: center;
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--muted-ink) 24%, transparent);
+  border-radius: 14px;
+}
+
+.period-navigation-column {
+  position: sticky;
+  top: 92px;
+  min-width: 0;
+}
+
 .event-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -203,6 +492,24 @@ function closeEventDetail(): void {
 
   .event-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .catalog-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .period-navigation-column {
+    top: var(--app-header-height);
+    z-index: 9;
+    order: -1;
+    width: 100%;
+  }
+
+  .period-section {
+    scroll-margin-top: calc(var(--app-header-height) + 68px);
   }
 }
 

@@ -1,11 +1,14 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { KEY_EVENTS } from '@/data/chinaHistoryRiver'
 import { formatHistoricalYear } from '@/domain/chinaRiverLayout'
+import { HISTORY_PERIODS } from '@/domain/historyPeriods'
 import { useHistoryStore } from '@/stores/historyStore'
 import EventListPage from './EventListPage.vue'
+
+let intersectionCallback: IntersectionObserverCallback
 
 async function mountPage(path = '/events') {
   const pinia = createPinia()
@@ -34,9 +37,30 @@ enableAutoUnmount(afterEach)
 describe('EventListPage', () => {
   beforeEach(() => {
     localStorage.clear()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    })
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          intersectionCallback = callback
+        }
+
+        observe = vi.fn()
+        disconnect = vi.fn()
+        unobserve = vi.fn()
+        takeRecords = vi.fn(() => [])
+        root = null
+        rootMargin = ''
+        thresholds = []
+      },
+    )
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     document.body.innerHTML = ''
   })
 
@@ -55,6 +79,85 @@ describe('EventListPage', () => {
       sortedEvents[sortedEvents.length - 1].title,
     )
     expect(wrapper.text()).toContain(`内置 · 只读 · ${KEY_EVENTS.length} 个事件`)
+  })
+
+  it('按主要历史时期展示分界线和事件卡片', async () => {
+    const { wrapper } = await mountPage()
+    const sections = wrapper.findAll('[data-test^="period-section-"]')
+
+    expect(sections).toHaveLength(HISTORY_PERIODS.length)
+    expect(sections.map((section) => section.get('h3').text())).toEqual(
+      HISTORY_PERIODS.map((period) => period.name),
+    )
+    expect(wrapper.get('[data-test="period-section-tang"]').text()).toContain(
+      '唐',
+    )
+    expect(wrapper.find('[data-test="period-navigation"]').exists()).toBe(true)
+  })
+
+  it('点击朝代导航后更新 hash 并滚动到对应分界线', async () => {
+    const { router, wrapper } = await mountPage()
+    const tangSection = wrapper.get('[data-test="period-section-tang"]')
+
+    await wrapper.get('[data-test="period-navigation-tang"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.hash).toBe('#period-tang')
+    expect(tangSection.element.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    })
+  })
+
+  it('首次进入带时期 hash 的地址时定位对应分界线', async () => {
+    const { wrapper } = await mountPage('/events#period-ming')
+    await flushPromises()
+
+    expect(
+      wrapper.get('[data-test="period-section-ming"]').element.scrollIntoView,
+    ).toHaveBeenCalledWith({
+      behavior: 'auto',
+      block: 'start',
+    })
+  })
+
+  it('读取全局页头高度为窄屏双 sticky 布局预留空间', async () => {
+    const appHeader = document.createElement('header')
+    appHeader.className = 'app-header'
+    appHeader.getBoundingClientRect = () =>
+      ({ height: 132 }) as DOMRect
+    document.body.appendChild(appHeader)
+
+    const { wrapper } = await mountPage()
+    await flushPromises()
+
+    expect(wrapper.get('.event-page').attributes('style')).toContain(
+      '--app-header-height: 132px',
+    )
+  })
+
+  it('阅读到新时期时同步高亮朝代导航', async () => {
+    const { wrapper } = await mountPage()
+    await flushPromises()
+    const tangSection = wrapper.get('[data-test="period-section-tang"]').element
+
+    intersectionCallback(
+      [
+        {
+          isIntersecting: true,
+          intersectionRatio: 0.75,
+          target: tangSection,
+        } as IntersectionObserverEntry,
+      ],
+      {} as IntersectionObserver,
+    )
+    await wrapper.vm.$nextTick()
+
+    expect(
+      wrapper
+        .get('[data-test="period-navigation-tang"]')
+        .attributes('aria-current'),
+    ).toBe('location')
   })
 
   it('仅提供只读卡片，不显示脉络和增删改入口', async () => {
@@ -87,16 +190,21 @@ describe('EventListPage', () => {
   it('卡片点击、路由变化和关闭详情保持同步', async () => {
     const first = sortedEvents[0]
     const second = sortedEvents[1]
-    const { router, wrapper } = await mountPage()
+    const { router, wrapper } = await mountPage('/events#period-xia')
 
     await wrapper.get(`[data-test="event-card-${first.id}"]`).trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.query.event).toBe(first.id)
+    expect(router.currentRoute.value.hash).toBe('#period-xia')
     expect(wrapper.get('[data-test="event-detail-overlay"]').text()).toContain(
       first.title,
     )
 
-    await router.push(`/events?event=${second.id}`)
+    await router.push({
+      path: '/events',
+      query: { event: second.id },
+      hash: '#period-xia',
+    })
     await flushPromises()
     expect(wrapper.get('[data-test="event-detail-overlay"]').text()).toContain(
       second.title,
@@ -105,6 +213,7 @@ describe('EventListPage', () => {
     await wrapper.get('[data-test="close"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.query).not.toHaveProperty('event')
+    expect(router.currentRoute.value.hash).toBe('#period-xia')
     expect(wrapper.find('[data-test="event-detail-overlay"]').exists()).toBe(
       false,
     )
