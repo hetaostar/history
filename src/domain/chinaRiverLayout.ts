@@ -176,6 +176,316 @@ export function createRiverDataPoints(
   return points
 }
 
+interface IDynastyOverviewGroup {
+  readonly id: string
+  readonly chineseName: string
+  readonly memberIds: readonly string[]
+}
+
+const DYNASTY_OVERVIEW_GROUPS: readonly IDynastyOverviewGroup[] = [
+  {
+    id: 'overview-spring-warring',
+    chineseName: '春秋战国',
+    memberIds: [
+      'zhou_east',
+      'spring_autumn',
+      'ws_qi',
+      'ws_chu',
+      'ws_yan',
+      'ws_han',
+      'ws_zhao',
+      'ws_wei',
+      'ws_qin',
+    ],
+  },
+  {
+    id: 'overview-three-kingdoms',
+    chineseName: '三国',
+    memberIds: ['threekingdoms_wei', 'threekingdoms_shu', 'threekingdoms_wu'],
+  },
+  {
+    id: 'overview-wei-jin',
+    chineseName: '魏晋南北朝',
+    memberIds: [
+      'jin',
+      'liu_song',
+      'southern_qi',
+      'liang',
+      'chen',
+      'northern_wei',
+      'eastern_wei',
+      'western_wei',
+      'northern_qi',
+      'northern_zhou',
+    ],
+  },
+  {
+    id: 'overview-five-ten',
+    chineseName: '五代十国',
+    memberIds: [
+      'five_later_liang',
+      'five_later_tang',
+      'five_later_jin',
+      'five_later_han',
+      'five_later_zhou',
+      'ten_wu',
+      'ten_southern_tang',
+      'ten_former_shu',
+      'ten_later_shu',
+      'ten_min',
+      'ten_chu',
+      'ten_southern_han',
+      'ten_wuyue',
+      'ten_jingnan',
+      'ten_northern_han',
+    ],
+  },
+]
+
+const DYNASTY_GEOGRAPHIC_ORDER: Readonly<Record<string, number>> = {
+  ws_yan: 10,
+  ws_zhao: 20,
+  ws_qi: 30,
+  ws_wei: 40,
+  ws_han: 50,
+  ws_qin: 60,
+  ws_chu: 90,
+  threekingdoms_wei: 10,
+  threekingdoms_shu: 60,
+  threekingdoms_wu: 90,
+  northern_wei: 10,
+  eastern_wei: 10,
+  western_wei: 20,
+  northern_qi: 10,
+  northern_zhou: 20,
+  liu_song: 80,
+  southern_qi: 80,
+  liang: 80,
+  chen: 80,
+  five_later_liang: 10,
+  five_later_tang: 10,
+  five_later_jin: 10,
+  five_later_han: 10,
+  five_later_zhou: 10,
+  ten_northern_han: 20,
+  ten_jingnan: 50,
+  ten_former_shu: 55,
+  ten_later_shu: 55,
+  ten_wu: 70,
+  ten_southern_tang: 70,
+  ten_chu: 75,
+  ten_wuyue: 80,
+  ten_min: 85,
+  ten_southern_han: 90,
+  qing: 10,
+  shun: 50,
+  ming: 90,
+}
+
+const CONTINUOUS_SUCCESSION_PAIRS = new Set([
+  'xia:shang',
+  'shang:zhou_west',
+  'han_west:xin',
+  'xin:han_east',
+  'han_east:threekingdoms_wei',
+  'jin:liu_song',
+  'liu_song:southern_qi',
+  'southern_qi:liang',
+  'liang:chen',
+  'northern_zhou:sui',
+  'sui:tang',
+  'tang:five_later_liang',
+  'five_later_liang:five_later_tang',
+  'five_later_tang:five_later_jin',
+  'five_later_jin:five_later_han',
+  'five_later_han:five_later_zhou',
+  'northern_song:southern_song',
+  'yuan:ming',
+  'qing:roc',
+  'roc:prc',
+  'overview-spring-warring:qin',
+  'han_east:overview-three-kingdoms',
+  'overview-wei-jin:sui',
+  'tang:overview-five-ten',
+  'overview-five-ten:northern_song',
+])
+
+export interface IDynastyDisplayItem {
+  readonly id: string
+  readonly chineseName: string
+  readonly startYear: number
+  readonly endYear: number
+  readonly color: string
+  readonly memberIds: readonly string[]
+  readonly dynasty: IDynasty | null
+}
+
+export interface IDynastySegment {
+  readonly id: string
+  readonly item: IDynastyDisplayItem
+  readonly startYear: number
+  readonly endYear: number
+  readonly stackIndex: number
+  readonly stackCount: number
+}
+
+export interface IDynastySegmentOptions {
+  readonly grouped: boolean
+}
+
+function createDetailedDynastyItems(
+  dynasties: readonly IDynasty[],
+): readonly IDynastyDisplayItem[] {
+  return dynasties.map((dynasty) => ({
+    id: dynasty.id,
+    chineseName: dynasty.chineseName,
+    startYear: dynasty.startYear,
+    endYear: dynasty.endYear,
+    color: dynasty.color,
+    memberIds: [dynasty.id],
+    dynasty,
+  }))
+}
+
+function createOverviewDynastyItems(
+  dynasties: readonly IDynasty[],
+): readonly IDynastyDisplayItem[] {
+  const dynastyById = new Map(dynasties.map((dynasty) => [dynasty.id, dynasty]))
+  const groupByMemberId = new Map(
+    DYNASTY_OVERVIEW_GROUPS.flatMap((group) =>
+      group.memberIds.map((memberId) => [memberId, group] as const),
+    ),
+  )
+  const emittedGroupIds = new Set<string>()
+  const items: IDynastyDisplayItem[] = []
+
+  dynasties.forEach((dynasty) => {
+    const group = groupByMemberId.get(dynasty.id)
+    if (!group) {
+      items.push({
+        id: dynasty.id,
+        chineseName: dynasty.chineseName,
+        startYear: dynasty.startYear,
+        endYear: dynasty.endYear,
+        color: dynasty.color,
+        memberIds: [dynasty.id],
+        dynasty,
+      })
+      return
+    }
+    if (emittedGroupIds.has(group.id)) return
+
+    const members = group.memberIds
+      .map((memberId) => dynastyById.get(memberId))
+      .filter((member): member is IDynasty => member !== undefined)
+    if (members.length === 0) return
+    emittedGroupIds.add(group.id)
+    items.push({
+      id: group.id,
+      chineseName: group.chineseName,
+      startYear: Math.min(...members.map((member) => member.startYear)),
+      endYear: Math.max(...members.map((member) => member.endYear)),
+      color: members[0].color,
+      memberIds: members.map((member) => member.id),
+      dynasty: null,
+    })
+  })
+
+  return items
+}
+
+function getDisplayEndYear(
+  item: IDynastyDisplayItem,
+  items: readonly IDynastyDisplayItem[],
+): number {
+  const hasContinuousSuccessor = items.some(
+    (candidate) =>
+      candidate.startYear === item.endYear &&
+      CONTINUOUS_SUCCESSION_PAIRS.has(`${item.id}:${candidate.id}`),
+  )
+
+  return hasContinuousSuccessor ? item.endYear : item.endYear + 1
+}
+
+export function createDynastySegments(
+  dynasties: readonly IDynasty[],
+  options: IDynastySegmentOptions,
+): readonly IDynastySegment[] {
+  const items = options.grouped
+    ? createOverviewDynastyItems(dynasties)
+    : createDetailedDynastyItems(dynasties)
+  const inputOrder = new Map(items.map((item, index) => [item.id, index]))
+  const displayEndYears = new Map(
+    items.map((item) => [item.id, getDisplayEndYear(item, items)]),
+  )
+  const boundaries = [
+    ...new Set(
+      items.flatMap((item) => [
+        item.startYear,
+        displayEndYears.get(item.id) ?? item.endYear + 1,
+      ]),
+    ),
+  ].sort((first, second) => first - second)
+  const segments: IDynastySegment[] = []
+
+  for (let index = 0; index < boundaries.length - 1; index += 1) {
+    const startYear = boundaries[index]
+    const endYear = boundaries[index + 1]
+    const activeItems = items
+      .filter(
+        (item) =>
+          item.startYear <= startYear &&
+          (displayEndYears.get(item.id) ?? item.endYear + 1) >= endYear,
+      )
+      .sort(
+        (first, second) =>
+          (DYNASTY_GEOGRAPHIC_ORDER[first.id] ?? 50) -
+            (DYNASTY_GEOGRAPHIC_ORDER[second.id] ?? 50) ||
+          (inputOrder.get(first.id) ?? 0) - (inputOrder.get(second.id) ?? 0),
+      )
+
+    activeItems.forEach((item, stackIndex) => {
+      segments.push({
+        id: `${item.id}:${startYear}:${endYear}`,
+        item,
+        startYear,
+        endYear,
+        stackIndex,
+        stackCount: activeItems.length,
+      })
+    })
+  }
+
+  const mergedSegments: IDynastySegment[] = []
+  const lastSegmentIndexByItemId = new Map<string, number>()
+
+  segments.forEach((segment) => {
+    const previousIndex = lastSegmentIndexByItemId.get(segment.item.id)
+    const previous =
+      previousIndex === undefined ? undefined : mergedSegments[previousIndex]
+
+    if (
+      previousIndex !== undefined &&
+      previous &&
+      previous.endYear === segment.startYear &&
+      previous.stackIndex === segment.stackIndex &&
+      previous.stackCount === segment.stackCount
+    ) {
+      mergedSegments[previousIndex] = {
+        ...previous,
+        id: `${previous.item.id}:${previous.startYear}:${segment.endYear}`,
+        endYear: segment.endYear,
+      }
+      return
+    }
+
+    lastSegmentIndexByItemId.set(segment.item.id, mergedSegments.length)
+    mergedSegments.push(segment)
+  })
+
+  return mergedSegments
+}
+
 export interface ITimelineTicks {
   readonly majorStep: number
   readonly minorStep: number | null
@@ -335,9 +645,13 @@ export function layoutRiverEvents(
   sortedEvents.forEach(({ event }) => {
     const x = (event.year - originYear) * options.pixelsPerYear * options.zoom
     const yearLabel = formatHistoricalYear(event.year)
-    const textWidth =
+    const measuredWidth =
       event.title.length * 14 + yearLabel.length * 9 + 15 + horizontalPadding
-    const width = textWidth * labelScale
+    const scaledWidth = measuredWidth * labelScale
+    const width =
+      event.importance === 1
+        ? Math.min(220, Math.max(152, scaledWidth))
+        : Math.min(184, Math.max(104, scaledWidth))
     const startX = x - width / 2
     const endX = x + width / 2
     assertFinite(x, `event "${event.id}" x`)

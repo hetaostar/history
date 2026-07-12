@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   calculateTimelineTicks,
+  createDynastySegments,
   createRiverDataPoints,
   formatHistoricalYear,
   getEventTypeColor,
@@ -8,6 +9,7 @@ import {
   getRiverSampleStep,
   layoutRiverEvents,
 } from './chinaRiverLayout'
+import { DYNASTIES, KEY_EVENTS } from '@/data/chinaHistoryRiver'
 import type { IDynasty, IHistoricalEvent } from './chinaRiverTypes'
 
 describe('formatHistoricalYear', () => {
@@ -251,6 +253,217 @@ describe('createRiverDataPoints', () => {
   })
 })
 
+describe('createDynastySegments', () => {
+  it('总览折叠复杂并立时期且完整保留成员引用', () => {
+    const segments = createDynastySegments(DYNASTIES, { grouped: true })
+    const items = new Map(segments.map(({ item }) => [item.id, item]))
+
+    expect(items.get('overview-spring-warring')).toMatchObject({
+      startYear: -770,
+      endYear: -221,
+      memberIds: [
+        'zhou_east',
+        'spring_autumn',
+        'ws_qi',
+        'ws_chu',
+        'ws_yan',
+        'ws_han',
+        'ws_zhao',
+        'ws_wei',
+        'ws_qin',
+      ],
+    })
+    expect(items.get('overview-three-kingdoms')).toMatchObject({
+      startYear: 220,
+      endYear: 280,
+      memberIds: ['threekingdoms_wei', 'threekingdoms_shu', 'threekingdoms_wu'],
+    })
+    expect(items.get('overview-wei-jin')).toMatchObject({
+      startYear: 266,
+      endYear: 589,
+      memberIds: [
+        'jin',
+        'liu_song',
+        'southern_qi',
+        'liang',
+        'chen',
+        'northern_wei',
+        'eastern_wei',
+        'western_wei',
+        'northern_qi',
+        'northern_zhou',
+      ],
+    })
+    expect(items.get('overview-five-ten')).toMatchObject({
+      startYear: 902,
+      endYear: 979,
+      memberIds: [
+        'five_later_liang',
+        'five_later_tang',
+        'five_later_jin',
+        'five_later_han',
+        'five_later_zhou',
+        'ten_wu',
+        'ten_southern_tang',
+        'ten_former_shu',
+        'ten_later_shu',
+        'ten_min',
+        'ten_chu',
+        'ten_southern_han',
+        'ten_wuyue',
+        'ten_jingnan',
+        'ten_northern_han',
+      ],
+    })
+    const groupedMemberIds = [...items.values()].flatMap(
+      ({ memberIds }) => memberIds,
+    )
+    expect(groupedMemberIds).toHaveLength(DYNASTIES.length)
+    expect(new Set(groupedMemberIds).size).toBe(DYNASTIES.length)
+    expect(items.has('ws_qi')).toBe(false)
+    expect(items.has('ten_wuyue')).toBe(false)
+  })
+
+  it('明清易代的共同年份按北中南顺序等分三层', () => {
+    const transitionSegments = createDynastySegments(DYNASTIES, {
+      grouped: false,
+    }).filter(
+      ({ startYear, endYear }) => startYear === 1644 && endYear === 1645,
+    )
+
+    expect(transitionSegments.map(({ item }) => item.id)).toEqual([
+      'qing',
+      'shun',
+      'ming',
+    ])
+    expect(
+      transitionSegments.map(({ stackIndex, stackCount }) => [
+        stackIndex,
+        stackCount,
+      ]),
+    ).toEqual([
+      [0, 3],
+      [1, 3],
+      [2, 3],
+    ])
+  })
+
+  it('北宋与南宋按顺承关系保持单层首尾相接', () => {
+    const segments = createDynastySegments(DYNASTIES, { grouped: false })
+    const northernSongEnd = segments.find(
+      ({ item, endYear }) => item.id === 'northern_song' && endYear === 1127,
+    )
+    const southernSongStart = segments.find(
+      ({ item, startYear }) =>
+        item.id === 'southern_song' && startYear === 1127,
+    )
+
+    expect(northernSongEnd).toMatchObject({ stackIndex: 0, stackCount: 1 })
+    expect(southernSongStart).toMatchObject({ stackIndex: 0, stackCount: 1 })
+  })
+
+  it('东汉曹魏与晋刘宋的同年顺承不产生额外重叠层', () => {
+    const segments = createDynastySegments(DYNASTIES, { grouped: false })
+    const year220 = segments.filter(
+      ({ startYear, endYear }) => startYear <= 220 && endYear >= 221,
+    )
+    const year420 = segments.filter(
+      ({ startYear, endYear }) => startYear <= 420 && endYear >= 421,
+    )
+
+    expect(year220.map(({ item }) => item.id)).toEqual(['threekingdoms_wei'])
+    expect(year420.map(({ item }) => item.id)).not.toContain('jin')
+    expect(year420.map(({ item }) => item.id)).toContain('liu_song')
+  })
+
+  it('合并同一政权相邻且分层位置不变的片段', () => {
+    const dynasties: readonly IDynasty[] = [
+      {
+        id: 'qing',
+        name: 'Qing',
+        chineseName: '清',
+        startYear: 0,
+        endYear: 100,
+        color: '#111111',
+        description: '用于测试的长期政权',
+      },
+      {
+        id: 'han_west',
+        name: 'Han',
+        chineseName: '汉',
+        startYear: 0,
+        endYear: 9,
+        color: '#222222',
+        description: '用于测试的顺承政权',
+      },
+      {
+        id: 'xin',
+        name: 'Xin',
+        chineseName: '新',
+        startYear: 9,
+        endYear: 20,
+        color: '#333333',
+        description: '用于测试的顺承政权',
+      },
+    ]
+    const qingSegments = createDynastySegments(dynasties, {
+      grouped: false,
+    }).filter(({ item }) => item.id === 'qing')
+
+    expect(qingSegments[0]).toMatchObject({
+      startYear: 0,
+      endYear: 21,
+      stackIndex: 0,
+      stackCount: 2,
+    })
+  })
+
+  it('每个时间片段的政权层无缝填满整条色带', () => {
+    const segments = createDynastySegments(DYNASTIES, { grouped: false })
+    const boundaries = [
+      ...new Set(
+        segments.flatMap(({ startYear, endYear }) => [startYear, endYear]),
+      ),
+    ].sort((first, second) => first - second)
+
+    boundaries.slice(0, -1).forEach((startYear, index) => {
+      const endYear = boundaries[index + 1]
+      const intervalSegments = segments.filter(
+        (segment) =>
+          segment.startYear <= startYear && segment.endYear >= endYear,
+      )
+      if (intervalSegments.length === 0) return
+
+      expect(intervalSegments).toHaveLength(intervalSegments[0].stackCount)
+      expect(
+        intervalSegments
+          .map(({ stackIndex }) => stackIndex)
+          .sort((first, second) => first - second),
+      ).toEqual(
+        Array.from(
+          { length: intervalSegments.length },
+          (_, stackIndex) => stackIndex,
+        ),
+      )
+      expect(
+        intervalSegments.reduce(
+          (total, { stackCount }) => total + 1 / stackCount,
+          0,
+        ),
+      ).toBeCloseTo(1)
+    })
+  })
+
+  it('不修改完整朝代数据', () => {
+    const snapshot = JSON.stringify(DYNASTIES)
+
+    createDynastySegments(DYNASTIES, { grouped: true })
+    createDynastySegments(DYNASTIES, { grouped: false })
+
+    expect(JSON.stringify(DYNASTIES)).toBe(snapshot)
+  })
+})
+
 describe('calculateTimelineTicks', () => {
   it.each([
     [-2500, 2025, 100, 20],
@@ -464,6 +677,51 @@ describe('layoutRiverEvents', () => {
     expect(firstNode?.endX).toBeGreaterThan(secondNode?.startX ?? Infinity)
     expect(firstNode?.lane).toBe(2)
     expect(secondNode?.lane).not.toBe(firstNode?.lane)
+  })
+
+  it('使用最终展示宽度为重要事件卡片避让', () => {
+    const shortFeaturedEvents: readonly IHistoricalEvent[] = [
+      {
+        id: 'featured-first',
+        year: 100,
+        title: '甲',
+        type: 'politics',
+        importance: 1,
+      },
+      {
+        id: 'featured-second',
+        year: 250,
+        title: '乙',
+        type: 'politics',
+        importance: 1,
+      },
+    ]
+    const nodes = layoutRiverEvents(shortFeaturedEvents, {
+      zoom: 1,
+      pixelsPerYear: 1,
+    })
+
+    expect(nodes.map(({ width }) => width)).toEqual([152, 152])
+    expect(nodes[0]?.lane).not.toBe(nodes[1]?.lane)
+  })
+
+  it('完整事件数据在最高重要度下全部完成无碰撞布局', () => {
+    const nodes = layoutRiverEvents(KEY_EVENTS, {
+      zoom: 6,
+      pixelsPerYear: 100,
+      maxVisibleImportance: 10,
+      maxLane: KEY_EVENTS.length,
+    })
+
+    expect(nodes).toHaveLength(KEY_EVENTS.length)
+    nodes.forEach((node, index) => {
+      nodes.slice(index + 1).forEach((otherNode) => {
+        if (node.lane !== otherNode.lane) return
+        expect(
+          node.endX < otherNode.startX || node.startX > otherNode.endX,
+        ).toBe(true)
+      })
+    })
   })
 
   it('按缩放级别过滤不可见重要度', () => {

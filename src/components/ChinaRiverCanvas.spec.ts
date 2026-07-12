@@ -2,7 +2,11 @@ import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import ChinaRiverCanvas from './ChinaRiverCanvas.vue'
-import { createRiverDataPoints } from '@/domain/chinaRiverLayout'
+import {
+  DYNASTIES as COMPLETE_DYNASTIES,
+  KEY_EVENTS as COMPLETE_EVENTS,
+} from '@/data/chinaHistoryRiver'
+import { createDynastySegments } from '@/domain/chinaRiverLayout'
 import type { IDynasty, IHistoricalEvent } from '@/domain/chinaRiverTypes'
 
 vi.mock('@/domain/chinaRiverLayout', async (importOriginal) => {
@@ -10,7 +14,7 @@ vi.mock('@/domain/chinaRiverLayout', async (importOriginal) => {
     await importOriginal<typeof import('@/domain/chinaRiverLayout')>()
   return {
     ...actual,
-    createRiverDataPoints: vi.fn(actual.createRiverDataPoints),
+    createDynastySegments: vi.fn(actual.createDynastySegments),
   }
 })
 
@@ -92,12 +96,6 @@ function createConcurrentDynasty(id: string, index: number): IDynasty {
   }
 }
 
-function getPathYCoordinates(path: string): number[] {
-  const coordinates =
-    path.match(/-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi)?.map(Number) ?? []
-  return coordinates.filter((_, index) => index % 2 === 1)
-}
-
 function getTranslateY(transform: string | undefined): number {
   if (!transform) throw new Error('缺少 transform 属性')
   const match = transform.match(/translate\([^ ]+ ([^)]+)\)/)
@@ -120,7 +118,7 @@ function getScale(transform: string | undefined): number {
 }
 
 beforeEach(() => {
-  vi.mocked(createRiverDataPoints).mockClear()
+  vi.mocked(createDynastySegments).mockClear()
   rafCallbacks = new Map()
   nextRafId = 1
   vi.spyOn(SVGSVGElement.prototype, 'createSVGPoint').mockImplementation(() => {
@@ -153,14 +151,213 @@ afterEach(() => {
 })
 
 describe('ChinaRiverCanvas', () => {
-  it('渲染 SVG、朝代河流与 1949 顶部轨道', () => {
+  it('渲染 SVG 与使用源颜色的朝代色带', () => {
     const wrapper = mountCanvas()
+    const bands = wrapper.findAll('[data-test="dynasty-band"]')
 
     expect(wrapper.get('svg').attributes('width')).toBe('1200')
-    expect(wrapper.findAll('[data-test="dynasty-river"]')).toHaveLength(2)
+    expect(bands).toHaveLength(2)
+    expect(bands.map((band) => band.attributes('fill'))).toEqual([
+      '#b45309',
+      '#ef4444',
+    ])
+    expect(wrapper.findAll('[data-test="timeline-rail"]')).toHaveLength(2)
     expect(wrapper.text()).toContain('汉')
-    expect(wrapper.get('[data-test="prc-track"]').text()).toContain('1949')
+    expect(wrapper.find('[data-test="prc-track"]').exists()).toBe(false)
 
+    wrapper.unmount()
+  })
+
+  it('完整数据初始视图保持有限节点且事件卡片互不重叠', () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties: COMPLETE_DYNASTIES,
+        events: COMPLETE_EVENTS,
+      },
+    })
+    const bands = wrapper.findAll('[data-test="dynasty-band"]')
+    const cards = wrapper.findAll('.river-event').map((event) => {
+      const card = event.get('.event-card')
+      const eventX = getTranslateX(event.attributes('transform'))
+      const eventY = getTranslateY(event.attributes('transform'))
+      const cardX = Number(card.attributes('x'))
+      const cardY = Number(card.attributes('y'))
+      const width = Number(card.attributes('width'))
+      const height = Number(card.attributes('height'))
+
+      return {
+        left: eventX + cardX,
+        right: eventX + cardX + width,
+        top: eventY + cardY,
+        bottom: eventY + cardY + height,
+      }
+    })
+
+    expect(bands.length).toBeGreaterThan(0)
+    expect(bands.length).toBeLessThan(COMPLETE_DYNASTIES.length * 3)
+    expect(
+      wrapper.find('[data-dynasty-id="overview-spring-warring"]').exists(),
+    ).toBe(true)
+    expect(cards.length).toBeLessThan(COMPLETE_EVENTS.length)
+    cards.forEach((card, index) => {
+      cards.slice(index + 1).forEach((otherCard) => {
+        const overlapsHorizontally =
+          card.left < otherCard.right && card.right > otherCard.left
+        const overlapsVertically =
+          card.top < otherCard.bottom && card.bottom > otherCard.top
+
+        expect(overlapsHorizontally && overlapsVertically).toBe(false)
+      })
+    })
+
+    wrapper.unmount()
+  })
+
+  it('总览折叠并立时期并在放大后自动展开全部政权', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties: COMPLETE_DYNASTIES,
+        events: [],
+      },
+    })
+
+    ;[
+      'overview-spring-warring',
+      'overview-three-kingdoms',
+      'overview-wei-jin',
+      'overview-five-ten',
+    ].forEach((groupId) => {
+      expect(wrapper.find(`[data-dynasty-id="${groupId}"]`).exists()).toBe(true)
+    })
+    ;['ws_qi', 'threekingdoms_wei', 'jin', 'ten_wuyue'].forEach((dynastyId) => {
+      expect(wrapper.find(`[data-dynasty-id="${dynastyId}"]`).exists()).toBe(
+        false,
+      )
+    })
+    expect(wrapper.text()).toContain('春秋战国')
+    expect(wrapper.text()).toContain('9政权')
+
+    for (let index = 0; index < 5; index += 1) {
+      await wrapper.get('svg').trigger('keydown', { key: '+' })
+      flushAnimationFrames()
+      await nextTick()
+    }
+
+    expect(
+      wrapper.find('[data-dynasty-id="overview-spring-warring"]').exists(),
+    ).toBe(false)
+    expect(wrapper.find('[data-dynasty-id="ws_qi"]').exists()).toBe(true)
+    expect(wrapper.find('[data-dynasty-id="ten_wuyue"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('详细视图将明清大顺等分并让北宋南宋保持单层衔接', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties: COMPLETE_DYNASTIES,
+        events: [],
+      },
+    })
+
+    for (let index = 0; index < 5; index += 1) {
+      await wrapper.get('svg').trigger('keydown', { key: '+' })
+      flushAnimationFrames()
+      await nextTick()
+    }
+
+    const transitionBands = wrapper.findAll(
+      '[data-start-year="1644"][data-end-year="1645"]',
+    )
+    expect(
+      transitionBands.map((band) => band.attributes('data-dynasty-id')),
+    ).toEqual(['qing', 'shun', 'ming'])
+    expect(
+      new Set(transitionBands.map((band) => band.attributes('height'))).size,
+    ).toBe(1)
+    expect(transitionBands.map((band) => Number(band.attributes('y')))).toEqual(
+      [...transitionBands]
+        .map((band) => Number(band.attributes('y')))
+        .sort((first, second) => first - second),
+    )
+
+    const northernSong = wrapper.get(
+      '[data-dynasty-id="northern_song"][data-end-year="1127"]',
+    )
+    const southernSong = wrapper.get(
+      '[data-dynasty-id="southern_song"][data-start-year="1127"]',
+    )
+    expect(northernSong.attributes('data-stack-count')).toBe('1')
+    expect(southernSong.attributes('data-stack-count')).toBe('1')
+    expect(northernSong.attributes('y')).toBe(southernSong.attributes('y'))
+    expect(northernSong.attributes('height')).toBe(
+      southernSong.attributes('height'),
+    )
+    wrapper.unmount()
+  })
+
+  it('跨过详细视图阈值后仍支持事件选择、滚轮缩放与键盘平移', async () => {
+    const detailEvent: IHistoricalEvent = {
+      id: 'detail-threshold-event',
+      year: -237,
+      title: '阈值交互事件',
+      type: 'politics',
+      importance: 1,
+    }
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties: COMPLETE_DYNASTIES,
+        events: [detailEvent],
+      },
+    })
+    const svg = wrapper.get('svg')
+    const zoomSurface = wrapper.get('[data-test="zoom-surface"]').element
+
+    for (let index = 0; index < 5; index += 1) {
+      await svg.trigger('keydown', { key: '+' })
+      flushAnimationFrames()
+      await nextTick()
+    }
+
+    await wrapper
+      .get('[data-test="river-event-detail-threshold-event"]')
+      .trigger('click')
+    expect(wrapper.emitted('select')?.[0]).toEqual([detailEvent])
+
+    const scaleBeforeWheel = getScale(
+      wrapper.get('.river-world').attributes('transform'),
+    )
+    zoomSurface.dispatchEvent(
+      new WheelEvent('wheel', {
+        deltaY: -100,
+        clientX: 600,
+        clientY: 360,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+    expect(
+      getScale(wrapper.get('.river-world').attributes('transform')),
+    ).toBeGreaterThan(scaleBeforeWheel)
+
+    const offsetBeforePan = getTranslateX(
+      wrapper.get('.river-world').attributes('transform'),
+    )
+    await svg.trigger('keydown', { key: 'ArrowRight' })
+    flushAnimationFrames()
+    await nextTick()
+    expect(
+      getTranslateX(wrapper.get('.river-world').attributes('transform')),
+    ).toBeLessThan(offsetBeforePan)
     wrapper.unmount()
   })
 
@@ -185,7 +382,7 @@ describe('ChinaRiverCanvas', () => {
     wrapper.unmount()
   })
 
-  it('多政权并立时将全部堆叠层限制在河流绘制范围内', () => {
+  it('多政权并立时在同一条粗色带内等高分层', () => {
     const concurrentDynasties = [
       'tang',
       'han_west',
@@ -205,17 +402,28 @@ describe('ChinaRiverCanvas', () => {
       },
     })
 
-    const allPathYCoordinates = wrapper
-      .findAll('[data-test="dynasty-river"]')
-      .flatMap((path) => getPathYCoordinates(path.attributes('d') ?? ''))
+    const bands = wrapper.findAll('[data-test="dynasty-band"]')
+    const bandTop = Math.min(
+      ...bands.map((band) => Number(band.attributes('y'))),
+    )
+    const bandBottom = Math.max(
+      ...bands.map(
+        (band) =>
+          Number(band.attributes('y')) + Number(band.attributes('height')),
+      ),
+    )
+    const heights = bands.map((band) => Number(band.attributes('height')))
 
-    expect(allPathYCoordinates.length).toBeGreaterThan(0)
-    expect(Math.min(...allPathYCoordinates)).toBeGreaterThanOrEqual(400)
-    expect(Math.max(...allPathYCoordinates)).toBeLessThanOrEqual(616)
+    expect(bands).toHaveLength(concurrentDynasties.length)
+    expect(new Set(heights).size).toBe(1)
+    expect(heights.reduce((total, height) => total + height, 0)).toBeCloseTo(
+      bandBottom - bandTop,
+    )
+    expect(bandBottom - bandTop).toBeGreaterThanOrEqual(110)
     wrapper.unmount()
   })
 
-  it('同年并立朝代标签位于各自堆叠层内部', () => {
+  it('同年并立朝代标签位于各自色带轨道中央', () => {
     const concurrentDynasties = ['tang', 'han_west'].map(
       createConcurrentDynasty,
     )
@@ -238,19 +446,17 @@ describe('ChinaRiverCanvas', () => {
     )
 
     expect(lowerLayerLabelY).toBeGreaterThan(400)
-    expect(lowerLayerLabelY).toBeLessThan(616)
+    expect(lowerLayerLabelY).toBeLessThan(634)
     expect(upperLayerLabelY).toBeGreaterThan(400)
-    expect(upperLayerLabelY).toBeLessThan(616)
-    expect(lowerLayerLabelY).toBeGreaterThan(upperLayerLabelY)
+    expect(upperLayerLabelY).toBeLessThan(634)
+    expect(lowerLayerLabelY).toBeLessThan(upperLayerLabelY)
     wrapper.unmount()
   })
 
   it('按事件、朝代河流、独立年份轴从上到下分区', () => {
     const wrapper = mountCanvas()
     const eventY = getTranslateY(
-      wrapper
-        .get('[data-test="river-event-founding"]')
-        .attributes('transform'),
+      wrapper.get('[data-test="river-event-founding"]').attributes('transform'),
     )
     const dynastyLabelYs = wrapper
       .findAll('.dynasty-labels > g')
@@ -289,6 +495,63 @@ describe('ChinaRiverCanvas', () => {
     expect(eventYs.length).toBeGreaterThan(0)
     expect(eventYs.length).toBeLessThan(crowdedEvents.length)
     expect(Math.min(...eventYs)).toBeGreaterThanOrEqual(24)
+    wrapper.unmount()
+  })
+
+  it('长事件标题在卡片内省略但保留完整无障碍名称', () => {
+    const longTitle = '这是一个用于验证事件卡片文字边界的超长历史事件标题'
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties,
+        events: [
+          {
+            id: 'long-title',
+            year: -237,
+            title: longTitle,
+            type: 'culture',
+            importance: 1,
+          },
+        ],
+      },
+    })
+    const event = wrapper.get('[data-test="river-event-long-title"]')
+
+    expect(event.get('.event-title').text()).toMatch(/…$/)
+    expect(event.attributes('aria-label')).toContain(longTitle)
+    wrapper.unmount()
+  })
+
+  it('紧凑卡片为年份优先预留空间并允许标题只显示省略号', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties,
+        events: [
+          {
+            id: 'compact-title',
+            year: -237,
+            title: '夏朝建立',
+            type: 'politics',
+            importance: 2,
+          },
+        ],
+      },
+    })
+
+    for (let index = 0; index < 3; index += 1) {
+      await wrapper.get('svg').trigger('keydown', { key: '+' })
+      flushAnimationFrames()
+      await nextTick()
+    }
+
+    expect(
+      wrapper
+        .get('[data-test="river-event-compact-title"] .event-title')
+        .text(),
+    ).toBe('… · 公元前237年')
     wrapper.unmount()
   })
 
@@ -336,6 +599,11 @@ describe('ChinaRiverCanvas', () => {
     expect(
       wrapper.find('[data-test="river-event-center-detail"]').exists(),
     ).toBe(false)
+    expect(
+      wrapper
+        .get('[data-test="river-event-founding"]')
+        .classes('river-event--featured'),
+    ).toBe(true)
 
     for (let index = 0; index < 3; index += 1) {
       await wrapper.get('svg').trigger('keydown', { key: '+' })
@@ -349,6 +617,11 @@ describe('ChinaRiverCanvas', () => {
     ).toBeGreaterThan(1)
     expect(
       wrapper.find('[data-test="river-event-center-detail"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper
+        .get('[data-test="river-event-center-detail"]')
+        .classes('river-event--compact'),
     ).toBe(true)
     wrapper.unmount()
   })
@@ -568,9 +841,7 @@ describe('ChinaRiverCanvas', () => {
     flushAnimationFrames()
     const zoomSurface = wrapper.get('[data-test="zoom-surface"]').element
     const initialDynastyLabelY = getTranslateY(
-      wrapper
-        .get('[data-test="dynasty-label-prc"]')
-        .attributes('transform'),
+      wrapper.get('[data-test="dynasty-label-han"]').attributes('transform'),
     )
 
     zoomSurface.dispatchEvent(
@@ -623,9 +894,7 @@ describe('ChinaRiverCanvas', () => {
     expect(internalTransform.y).toBe(0)
     expect(
       getTranslateY(
-        wrapper
-          .get('[data-test="dynasty-label-prc"]')
-          .attributes('transform'),
+        wrapper.get('[data-test="dynasty-label-han"]').attributes('transform'),
       ),
     ).toBe(initialDynastyLabelY)
     expect(eventAnchor).toBeLessThan(timelineCenter)
@@ -713,20 +982,28 @@ describe('ChinaRiverCanvas', () => {
     expect(getTranslateX(worldTransform)).toBeCloseTo(16)
     expect(internalTransform.y).toBe(0)
     expect(
-      getTranslateY(
-        wrapper.get('.timeline-axis > g').attributes('transform'),
-      ),
+      getTranslateY(wrapper.get('.timeline-axis > g').attributes('transform')),
     ).toBe(558)
     wrapper.unmount()
   })
 
-  it('同一采样级连续缩放不重复计算河流重几何', async () => {
+  it('指针移动和连续缩放不重复计算预生成的两套朝代片段', async () => {
     const wrapper = mountCanvas()
     flushAnimationFrames()
     await nextTick()
-    const initialCalculationCount = vi.mocked(createRiverDataPoints).mock.calls
+    const initialCalculationCount = vi.mocked(createDynastySegments).mock.calls
       .length
     const zoomSurface = wrapper.get('[data-test="zoom-surface"]').element
+
+    wrapper.element.dispatchEvent(
+      new PointerEvent('pointermove', {
+        clientX: 500,
+        clientY: 220,
+        bubbles: true,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
 
     for (let index = 0; index < 2; index += 1) {
       zoomSurface.dispatchEvent(
@@ -742,7 +1019,7 @@ describe('ChinaRiverCanvas', () => {
       await nextTick()
     }
 
-    expect(createRiverDataPoints).toHaveBeenCalledTimes(initialCalculationCount)
+    expect(createDynastySegments).toHaveBeenCalledTimes(initialCalculationCount)
     wrapper.unmount()
   })
 
@@ -799,5 +1076,62 @@ describe('ChinaRiverCanvas', () => {
         ([type]) => type === 'pointermove',
       ),
     ).toBe(true)
+  })
+
+  it('跨过详细视图阈值后仍支持鼠标拖拽', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties: COMPLETE_DYNASTIES,
+        events: [],
+      },
+    })
+    const svg = wrapper.get('svg')
+    const zoomSurface = wrapper.get('[data-test="zoom-surface"]').element
+
+    for (let index = 0; index < 5; index += 1) {
+      await svg.trigger('keydown', { key: '+' })
+      flushAnimationFrames()
+      await nextTick()
+    }
+
+    const offsetBeforeDrag = getTranslateX(
+      wrapper.get('.river-world').attributes('transform'),
+    )
+    zoomSurface.dispatchEvent(
+      new MouseEvent('mousedown', {
+        clientX: 600,
+        clientY: 360,
+        button: 0,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    window.dispatchEvent(
+      new MouseEvent('mousemove', {
+        clientX: 500,
+        clientY: 360,
+        buttons: 1,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    window.dispatchEvent(
+      new MouseEvent('mouseup', {
+        clientX: 500,
+        clientY: 360,
+        bubbles: true,
+        view: window,
+      }),
+    )
+    flushAnimationFrames()
+    await nextTick()
+
+    expect(
+      getTranslateX(wrapper.get('.river-world').attributes('transform')),
+    ).toBeLessThan(offsetBeforeDrag)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    wrapper.unmount()
   })
 })

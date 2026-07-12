@@ -145,12 +145,17 @@ onMounted(() => {
 
 <style scoped>
 .event-detail-overlay {
+  --detail-navy: color-mix(in srgb, var(--bronze) 38%, var(--ink));
   --detail-overlay-glow: color-mix(in srgb, var(--aged-gold) 14%, transparent);
-  --detail-overlay-scrim: color-mix(in srgb, var(--ink) 82%, transparent);
+  --detail-overlay-scrim: color-mix(
+    in srgb,
+    var(--detail-navy) 88%,
+    transparent
+  );
   --detail-paper-line: color-mix(in srgb, var(--muted-ink) 7%, transparent);
   --detail-cinnabar-wash: color-mix(in srgb, var(--cinnabar) 10%, transparent);
   --detail-shadow: color-mix(in srgb, var(--ink) 42%, transparent);
-  --detail-gold-inset: color-mix(in srgb, var(--aged-gold) 8%, transparent);
+  --detail-gold-inset: color-mix(in srgb, var(--aged-gold) 13%, transparent);
   --detail-error-ink: color-mix(in srgb, var(--cinnabar) 58%, var(--ink));
 
   position: fixed;
@@ -167,7 +172,6 @@ onMounted(() => {
       transparent 35%
     ),
     var(--detail-overlay-scrim);
-  backdrop-filter: blur(7px);
   animation: veil-in 180ms ease-out;
 }
 
@@ -185,11 +189,11 @@ onMounted(() => {
       transparent 11rem
     ),
     var(--paper);
-  border: 1px solid var(--paper-deep);
-  border-radius: 4px 20px 4px 20px;
+  border: 1px solid color-mix(in srgb, var(--aged-gold) 72%, var(--paper-deep));
+  border-radius: 18px;
   box-shadow:
     0 32px 90px var(--detail-shadow),
-    inset 0 0 0 5px var(--detail-gold-inset);
+    inset 0 0 0 4px var(--detail-gold-inset);
   animation: sheet-in 220ms ease-out;
 }
 
@@ -244,9 +248,9 @@ onMounted(() => {
 .event-type {
   padding: 4px 9px;
   color: var(--paper);
-  background: var(--cinnabar);
-  border-radius: 2px;
-  box-shadow: 2px 2px 0 color-mix(in srgb, var(--cinnabar) 18%, transparent);
+  background: var(--detail-navy);
+  border: 1px solid color-mix(in srgb, var(--aged-gold) 62%, transparent);
+  border-radius: 999px;
 }
 
 h2 {
@@ -333,14 +337,14 @@ h2 {
 
 .remembered-button {
   color: var(--paper);
-  background: var(--bronze);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--bronze) 18%, transparent);
+  background: var(--detail-navy);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--detail-navy) 22%, transparent);
 }
 
 .forgotten-button {
-  color: var(--cinnabar);
+  color: var(--detail-navy);
   background: transparent;
-  border-color: color-mix(in srgb, var(--cinnabar) 40%, transparent);
+  border-color: color-mix(in srgb, var(--detail-navy) 48%, transparent);
 }
 
 .close-button:focus-visible,

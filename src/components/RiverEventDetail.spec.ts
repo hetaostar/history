@@ -137,6 +137,7 @@ describe('RiverEventDetail', () => {
       ''
 
     expect(style).toContain('color-mix(in srgb')
+    expect(style).toContain('--detail-navy:')
     expect(style).not.toMatch(/#[\da-f]{3,8}\b|rgba?\(/i)
   })
 

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, onMounted } from 'vue'
 import { DYNASTIES, KEY_EVENTS } from '@/data/chinaHistoryRiver'
 import ChinaHistoryRiverPage from './ChinaHistoryRiverPage.vue'
+import chinaHistoryRiverPageSource from './ChinaHistoryRiverPage.vue?raw'
 
 type ResizeObserverCallback = (entries: ResizeObserverEntry[]) => void
 
@@ -84,6 +85,16 @@ describe('ChinaHistoryRiverPage', () => {
     expect(backLink.attributes('href')).toBe('/')
     expect(backLink.text()).toBe('返回主页')
     expect(wrapper.text()).not.toContain('时间线列表')
+  })
+
+  it('使用页面内独立深色主题且不修改全局 body', () => {
+    const style =
+      chinaHistoryRiverPageSource.match(
+        /<style scoped>([\s\S]*?)<\/style>/,
+      )?.[1] ?? ''
+
+    expect(style).toContain('--river-page-background:')
+    expect(style).not.toContain(':global(body)')
   })
 
   afterEach(() => {

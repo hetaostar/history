@@ -11,13 +11,13 @@ import {
 } from 'vue'
 import {
   calculateTimelineTicks,
-  createRiverDataPoints,
+  createDynastySegments,
   formatHistoricalYear,
   getEventTypeColor,
   getMaxVisibleImportance,
-  getRiverSampleStep,
   layoutRiverEvents,
 } from '@/domain/chinaRiverLayout'
+import type { IDynastyDisplayItem } from '@/domain/chinaRiverLayout'
 import type {
   HistoricalEventImportance,
   IDynasty,
@@ -31,12 +31,15 @@ const INITIAL_CENTER_YEAR = 900
 const INITIAL_ZOOM = 0.12
 const MIN_ZOOM = 0.05
 const MAX_ZOOM = 50
-const EVENT_LANE_HEIGHT = 48
+const EVENT_LANE_HEIGHT = 64
 const KEYBOARD_PAN_DISTANCE = 80
 const KEYBOARD_ZOOM_FACTOR = 1.5
 const TIMELINE_BOTTOM_OFFSET = 42
 const TIMELINE_DIVIDER_GAP = 44
-const RIVER_BOTTOM_GAP = 18
+const DYNASTY_DETAIL_ZOOM = 0.8
+const DYNASTY_BAND_MAX_HEIGHT = 140
+const DYNASTY_BAND_MIN_HEIGHT = 96
+const DYNASTY_BAND_BOTTOM_GAP = 12
 const EVENT_BASELINE_GAP = 18
 const EVENT_AREA_TOP_PADDING = 24
 
@@ -60,7 +63,7 @@ const viewport = ref<IViewport>(createInitialViewport())
 const pointerPosition = ref<{ x: number; y: number } | null>(null)
 const instanceId = useId()
 const riverBackgroundId = `${instanceId}-river-background`
-const riverGlowId = `${instanceId}-river-glow`
+const eventPaperId = `${instanceId}-event-paper`
 let targetViewport = viewport.value
 let targetPointer: { x: number; y: number } | null = null
 let frameId: number | null = null
@@ -214,6 +217,12 @@ function selectEvent(event: IHistoricalEvent): void {
   emit('select', event)
 }
 
+function truncateLabel(value: string, maxCharacters: number): string {
+  if (value.length <= maxCharacters) return value
+  if (maxCharacters <= 1) return '…'
+  return `${value.slice(0, maxCharacters - 1)}…`
+}
+
 const maxVisibleImportance = computed(() =>
   getMaxVisibleImportance(viewport.value.k),
 )
@@ -224,8 +233,6 @@ watch(
   { immediate: true },
 )
 
-const riverSampleStep = computed(() => getRiverSampleStep(viewport.value.k))
-
 const timelineAxisY = computed(() =>
   Math.max(96, props.height - TIMELINE_BOTTOM_OFFSET),
 )
@@ -234,18 +241,38 @@ const timelineDividerY = computed(
   () => timelineAxisY.value - TIMELINE_DIVIDER_GAP,
 )
 
-const riverBottomY = computed(
-  () => timelineDividerY.value - RIVER_BOTTOM_GAP,
+const overviewDynastySegments = computed(() =>
+  createDynastySegments(props.dynasties, { grouped: true }),
 )
 
-const riverTopY = computed(() =>
+const detailedDynastySegments = computed(() =>
+  createDynastySegments(props.dynasties, { grouped: false }),
+)
+
+const activeDynastySegments = computed(() =>
+  viewport.value.k >= DYNASTY_DETAIL_ZOOM
+    ? detailedDynastySegments.value
+    : overviewDynastySegments.value,
+)
+
+const dynastyBandHeight = computed(() =>
   Math.max(
-    props.height * 0.5,
-    riverBottomY.value - Math.min(220, props.height * 0.3),
+    DYNASTY_BAND_MIN_HEIGHT,
+    Math.min(DYNASTY_BAND_MAX_HEIGHT, props.height * 0.2),
   ),
 )
 
-const eventBaselineY = computed(() => riverTopY.value - EVENT_BASELINE_GAP)
+const dynastyBandBottomY = computed(
+  () => timelineDividerY.value - DYNASTY_BAND_BOTTOM_GAP,
+)
+
+const dynastyBandTopY = computed(
+  () => dynastyBandBottomY.value - dynastyBandHeight.value,
+)
+
+const eventBaselineY = computed(
+  () => dynastyBandTopY.value - EVENT_BASELINE_GAP,
+)
 
 const maxEventLanes = computed(() =>
   Math.max(
@@ -256,50 +283,20 @@ const maxEventLanes = computed(() =>
   ),
 )
 
-const prcTrackY = computed(() => riverTopY.value + 22)
-
-const riverPoints = computed(() =>
-  createRiverDataPoints(props.dynasties, {
-    startYear: DATA_START_YEAR,
-    endYear: DATA_END_YEAR,
-    step: riverSampleStep.value,
-  }),
+const dynastyBands = computed(() =>
+  activeDynastySegments.value.map((segment) => ({
+    ...segment,
+    x: yearToWorldX(segment.startYear),
+    width: Math.max(
+      1,
+      yearToWorldX(segment.endYear) - yearToWorldX(segment.startYear),
+    ),
+    y:
+      dynastyBandTopY.value +
+      (segment.stackIndex / segment.stackCount) * dynastyBandHeight.value,
+    height: dynastyBandHeight.value / segment.stackCount,
+  })),
 )
-
-const riverStackLayout = computed(() => {
-  const stackInput = riverPoints.value.map((point) => ({
-    year: point.year,
-    ...point.powers,
-  }))
-  const stack = d3
-    .stack<Record<string, number>>()
-    .keys(props.dynasties.map((dynasty) => dynasty.id))
-    .offset(d3.stackOffsetSilhouette)
-  const series = stack(stackInput)
-  const maximumTotalPower =
-    d3.max(riverPoints.value, (point) => point.totalPower) ?? 0
-  const paddedHalfDomain = Math.max(1, (maximumTotalPower / 2) * 1.1)
-  const yScale = d3
-    .scaleLinear()
-    .domain([-paddedHalfDomain, paddedHalfDomain])
-    .range([riverBottomY.value, riverTopY.value])
-
-  return { series, yScale }
-})
-
-const dynastyPaths = computed(() => {
-  const area = d3
-    .area<d3.SeriesPoint<Record<string, number>>>()
-    .x((point) => yearToWorldX(point.data.year))
-    .y0((point) => riverStackLayout.value.yScale(point[0]))
-    .y1((point) => riverStackLayout.value.yScale(point[1]))
-    .curve(d3.curveBasis)
-
-  return riverStackLayout.value.series.map((dynastySeries, index) => ({
-    dynasty: props.dynasties[index],
-    path: area(dynastySeries) ?? '',
-  }))
-})
 
 const visibleYearRange = computed(() => {
   const firstYear = Math.max(DATA_START_YEAR, screenXToYear(0))
@@ -314,34 +311,36 @@ const visibleYearMargin = computed(
 )
 
 const dynastyLabels = computed(() =>
-  props.dynasties
-    .map((dynasty, dynastyIndex) => ({
-      dynasty,
-      dynastyIndex,
-      labelYear: (dynasty.startYear + dynasty.endYear) / 2,
-    }))
-    .filter(
-      ({ labelYear }) =>
-        labelYear >= visibleYearRange.value.start - visibleYearMargin.value &&
-        labelYear <= visibleYearRange.value.end + visibleYearMargin.value,
-    )
-    .map(({ dynasty, dynastyIndex, labelYear }) => {
-      const series = riverStackLayout.value.series[dynastyIndex]
-      const layerPoint = series.reduce((nearestPoint, point) =>
-        Math.abs(point.data.year - labelYear) <
-        Math.abs(nearestPoint.data.year - labelYear)
-          ? point
-          : nearestPoint,
+  [
+    ...dynastyBands.value
+      .map(({ item, startYear, endYear, y, height }) => ({
+        item,
+        labelYear: (startYear + endYear) / 2,
+        y: y + height / 2,
+        visibleWidth:
+          (yearToWorldX(endYear) - yearToWorldX(startYear)) * viewport.value.k,
+      }))
+      .filter(
+        ({ labelYear, visibleWidth, y }) =>
+          visibleWidth >= 34 &&
+          y >= dynastyBandTopY.value &&
+          labelYear >= visibleYearRange.value.start - visibleYearMargin.value &&
+          labelYear <= visibleYearRange.value.end + visibleYearMargin.value,
       )
-      const layerMiddle = (layerPoint[0] + layerPoint[1]) / 2
-      const worldY = riverStackLayout.value.yScale(layerMiddle)
-
-      return {
-        dynasty,
-        x: yearToScreenX(labelYear),
-        y: worldY,
-      }
-    })
+      .reduce((widestByItem, label) => {
+        const existing = widestByItem.get(label.item.id)
+        if (!existing || label.visibleWidth > existing.visibleWidth) {
+          widestByItem.set(label.item.id, label)
+        }
+        return widestByItem
+      }, new Map<string, { item: IDynastyDisplayItem; labelYear: number; y: number; visibleWidth: number }>())
+      .values(),
+  ]
+    .map(({ item, labelYear, y }) => ({
+      item,
+      x: yearToScreenX(labelYear),
+      y,
+    }))
     .filter(({ x }) => x > -120 && x < props.width + 120),
 )
 
@@ -379,13 +378,32 @@ const eventNodes = computed(() => {
     originYear: DATA_START_YEAR,
     maxVisibleImportance: maxVisibleImportance.value,
     maxLane: maxEventLanes.value,
-  }).map((node) => ({
-    ...node,
-    screenX: viewport.value.x + node.x,
-    screenY: eventBaselineY.value - node.lane * EVENT_LANE_HEIGHT,
-    color: getEventTypeColor(node.event.type),
-    yearLabel: formatHistoricalYear(node.event.year),
-  }))
+  }).map((node) => {
+    const featured = node.event.importance === 1
+    const cardHeight = featured ? 58 : 32
+    const yearLabel = formatHistoricalYear(node.event.year)
+    const availableTitleWidth = featured
+      ? node.width - 28
+      : node.width - yearLabel.length * 9 - 38
+    const maxTitleCharacters = Math.max(
+      featured ? 3 : 1,
+      Math.floor(availableTitleWidth / 13),
+    )
+
+    return {
+      ...node,
+      featured,
+      cardHeight,
+      cardWidth: node.width,
+      screenX: viewport.value.x + node.x,
+      screenY:
+        eventBaselineY.value - node.lane * EVENT_LANE_HEIGHT - cardHeight / 2,
+      connectorLength: node.lane * EVENT_LANE_HEIGHT + cardHeight / 2,
+      color: getEventTypeColor(node.event.type),
+      yearLabel,
+      displayTitle: truncateLabel(node.event.title, maxTitleCharacters),
+    }
+  })
 })
 
 const hoverYear = computed(() =>
@@ -401,9 +419,6 @@ const hoverYearLabel = computed(() =>
 const worldTransform = computed(
   () => `translate(${viewport.value.x} 0) scale(${viewport.value.k} 1)`,
 )
-
-const prcTrackStart = computed(() => yearToScreenX(1949))
-const prcTrackEnd = computed(() => yearToScreenX(DATA_END_YEAR))
 
 function initializeZoom(): void {
   if (!svg.value) return
@@ -525,17 +540,14 @@ onUnmounted(() => {
     >
       <defs>
         <linearGradient :id="riverBackgroundId" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#050a14" />
-          <stop offset="55%" stop-color="#0b1727" />
-          <stop offset="100%" stop-color="#030711" />
+          <stop offset="0%" stop-color="#123047" />
+          <stop offset="52%" stop-color="#0b2538" />
+          <stop offset="100%" stop-color="#061a29" />
         </linearGradient>
-        <filter :id="riverGlowId" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="6" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
+        <linearGradient :id="eventPaperId" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fffdf0" />
+          <stop offset="100%" stop-color="#eee7c9" />
+        </linearGradient>
       </defs>
 
       <rect
@@ -548,14 +560,31 @@ onUnmounted(() => {
       />
 
       <g class="river-world" :transform="worldTransform">
-        <path
-          v-for="{ dynasty, path } in dynastyPaths"
-          :key="dynasty.id"
-          data-test="dynasty-river"
-          class="dynasty-river"
-          :d="path"
-          :fill="dynasty.color"
-          :style="{ filter: `url(#${riverGlowId})` }"
+        <rect
+          v-for="{
+            id,
+            item,
+            startYear,
+            endYear,
+            stackCount,
+            x,
+            y,
+            width: bandWidth,
+            height: bandHeight,
+          } in dynastyBands"
+          :key="id"
+          data-test="dynasty-band"
+          class="dynasty-band"
+          :class="{ 'dynasty-band--group': item.dynasty === null }"
+          :data-dynasty-id="item.id"
+          :data-start-year="startYear"
+          :data-end-year="endYear"
+          :data-stack-count="stackCount"
+          :x="x"
+          :y="y"
+          :width="bandWidth"
+          :height="bandHeight"
+          :fill="item.color"
         />
       </g>
 
@@ -567,6 +596,16 @@ onUnmounted(() => {
           :x2="props.width"
           :y1="timelineDividerY"
           :y2="timelineDividerY"
+        />
+        <line
+          v-for="offset in [-4, 4]"
+          :key="`rail-${offset}`"
+          data-test="timeline-rail"
+          class="timeline-rail"
+          x1="0"
+          :x2="props.width"
+          :y1="timelineAxisY + offset"
+          :y2="timelineAxisY + offset"
         />
         <line
           v-for="tick in minorTicks"
@@ -591,38 +630,21 @@ onUnmounted(() => {
 
       <g class="dynasty-labels" aria-hidden="true">
         <g
-          v-for="{ dynasty, x, y } in dynastyLabels"
-          :key="`label-${dynasty.id}`"
-          :data-test="`dynasty-label-${dynasty.id}`"
+          v-for="{ item, x, y } in dynastyLabels"
+          :key="`label-${item.id}`"
+          :data-test="`dynasty-label-${item.id}`"
           :transform="`translate(${x} ${y})`"
         >
           <text class="dynasty-label" text-anchor="middle">
-            {{ dynasty.chineseName }}
+            {{ item.chineseName }}
+            <tspan
+              v-if="item.memberIds.length > 1"
+              class="dynasty-label__count"
+            >
+              · {{ item.memberIds.length }}政权
+            </tspan>
           </text>
         </g>
-      </g>
-
-      <g
-        data-test="prc-track"
-        class="prc-track"
-        :class="{
-          'prc-track--visible':
-            prcTrackEnd >= 0 && prcTrackStart <= props.width,
-        }"
-      >
-        <line
-          :x1="prcTrackStart"
-          :x2="prcTrackEnd"
-          :y1="prcTrackY"
-          :y2="prcTrackY"
-        />
-        <circle :cx="prcTrackStart" :cy="prcTrackY" r="5" />
-        <text
-          :x="Math.max(84, prcTrackStart + 12)"
-          :y="prcTrackY + 25"
-        >
-          1949 · 中华人民共和国
-        </text>
       </g>
 
       <g class="river-events">
@@ -630,6 +652,9 @@ onUnmounted(() => {
           v-for="node in eventNodes"
           :key="node.event.id"
           class="river-event"
+          :class="
+            node.featured ? 'river-event--featured' : 'river-event--compact'
+          "
           :data-test="`river-event-${node.event.id}`"
           :transform="`translate(${node.screenX} ${node.screenY})`"
           role="button"
@@ -643,23 +668,45 @@ onUnmounted(() => {
             <line
               class="event-connector"
               x1="0"
-              :y1="node.lane * EVENT_LANE_HEIGHT"
+              :y1="node.connectorLength"
               x2="0"
-              y2="0"
+              :y2="node.cardHeight / 2"
               :stroke="node.color"
             />
-            <circle class="event-dot" r="5" :fill="node.color" />
+            <circle
+              class="event-dot"
+              :cy="node.connectorLength"
+              r="5"
+              :fill="node.color"
+            />
             <rect
               class="event-card"
-              :x="-node.width / 2"
-              y="-17"
-              :width="node.width"
-              height="34"
-              rx="9"
+              :x="-node.cardWidth / 2"
+              :y="-node.cardHeight / 2"
+              :width="node.cardWidth"
+              :height="node.cardHeight"
+              :rx="node.featured ? 12 : 16"
               :stroke="node.color"
+              :fill="`url(#${eventPaperId})`"
             />
-            <text class="event-title" y="4" text-anchor="middle">
-              {{ node.event.title }} · {{ node.yearLabel }}
+            <text
+              v-if="node.featured"
+              class="event-title"
+              y="-4"
+              text-anchor="middle"
+            >
+              {{ node.displayTitle }}
+            </text>
+            <text
+              v-if="node.featured"
+              class="event-meta"
+              y="17"
+              text-anchor="middle"
+            >
+              {{ node.yearLabel }}
+            </text>
+            <text v-else class="event-title" y="4" text-anchor="middle">
+              {{ node.displayTitle }} · {{ node.yearLabel }}
             </text>
           </g>
         </g>
@@ -696,13 +743,13 @@ onUnmounted(() => {
   width: fit-content;
   max-width: 100%;
   overflow: hidden;
-  color: #f4ead2;
-  background: #030711;
-  border: 1px solid rgb(148 163 184 / 18%);
-  border-radius: 22px;
+  color: #f8f1d7;
+  background: #061a29;
+  border: 1px solid rgb(229 203 139 / 32%);
+  border-radius: 18px;
   box-shadow:
-    0 30px 80px rgb(0 0 0 / 42%),
-    inset 0 1px 0 rgb(255 255 255 / 5%);
+    0 28px 72px rgb(0 0 0 / 36%),
+    inset 0 1px 0 rgb(255 253 240 / 8%);
   isolation: isolate;
   touch-action: none;
 }
@@ -730,25 +777,35 @@ onUnmounted(() => {
 
 .river-world,
 .timeline-axis,
-.dynasty-labels,
-.prc-track {
+.dynasty-labels {
   pointer-events: none;
 }
 
-.dynasty-river {
-  opacity: 0.82;
-  stroke: rgb(255 255 255 / 14%);
+.dynasty-band {
+  opacity: 0.9;
+  stroke: rgb(255 253 240 / 38%);
   stroke-width: 1;
+}
+
+.dynasty-band--group {
+  opacity: 0.96;
+  stroke: #d7bd7a;
+  stroke-width: 1.5;
 }
 
 .minor-tick,
 .major-tick {
-  stroke: rgb(226 232 240 / 30%);
+  stroke: rgb(235 216 161 / 40%);
 }
 
 .timeline-divider {
-  stroke: rgb(246 217 141 / 24%);
+  stroke: rgb(229 203 139 / 28%);
   stroke-width: 1;
+}
+
+.timeline-rail {
+  stroke: #d7bd7a;
+  stroke-width: 1.5;
 }
 
 .major-tick {
@@ -756,48 +813,27 @@ onUnmounted(() => {
 }
 
 .tick-label {
-  fill: #98a8bd;
+  fill: #c6b98f;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   letter-spacing: 0.04em;
 }
 
 .dynasty-label {
-  fill: #fff6dc;
+  fill: #fff9e5;
   font-family: 'Noto Serif SC', 'Songti SC', serif;
-  font-size: 24px;
+  font-size: 13px;
   font-weight: 800;
   paint-order: stroke;
-  stroke: rgb(3 7 17 / 78%);
-  stroke-width: 5px;
+  stroke: rgb(6 26 41 / 72%);
+  stroke-width: 3px;
 }
 
-.prc-track {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.prc-track--visible {
-  opacity: 1;
-}
-
-.prc-track line {
-  stroke: #ef4444;
-  stroke-width: 2;
-  stroke-dasharray: 7 6;
-}
-
-.prc-track circle {
-  fill: #fecaca;
-  stroke: #ef4444;
-  stroke-width: 3;
-}
-
-.prc-track text {
-  fill: #fecaca;
-  font-size: 13px;
+.dynasty-label__count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .river-event {
@@ -809,14 +845,14 @@ onUnmounted(() => {
   transform-box: fill-box;
   transform-origin: center;
   transition:
-    transform 160ms ease,
-    filter 160ms ease;
+    transform 140ms ease,
+    opacity 140ms ease;
 }
 
 .river-event:hover .river-event__content,
 .river-event:focus-visible .river-event__content {
-  filter: drop-shadow(0 7px 14px rgb(0 0 0 / 55%));
-  transform: scale(1.12);
+  opacity: 1;
+  transform: translateY(-2px);
 }
 
 .river-event:focus-visible .event-card {
@@ -825,14 +861,13 @@ onUnmounted(() => {
 }
 
 .event-connector {
-  opacity: 0.48;
+  opacity: 0.58;
   stroke-dasharray: 3 4;
-  stroke-width: 1.5;
+  stroke-width: 1.25;
 }
 
 .event-card {
-  fill: rgb(7 15 27 / 92%);
-  stroke-width: 1.5;
+  stroke-width: 1.25;
 }
 
 .event-dot {
@@ -841,10 +876,22 @@ onUnmounted(() => {
 }
 
 .event-title {
-  fill: #f8fafc;
+  fill: #172838;
   font-family: 'Noto Serif SC', 'Songti SC', serif;
   font-size: 12px;
+  font-weight: 800;
+}
+
+.event-meta {
+  fill: #607080;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.river-event--featured .event-card {
+  stroke-width: 2;
 }
 
 .hover-year {
@@ -858,8 +905,8 @@ onUnmounted(() => {
 }
 
 .hover-year rect {
-  fill: rgb(15 23 42 / 94%);
-  stroke: #f6d98d;
+  fill: rgb(8 31 47 / 96%);
+  stroke: #d7bd7a;
 }
 
 .hover-year text {
