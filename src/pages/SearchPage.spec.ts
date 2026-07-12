@@ -10,7 +10,7 @@ function createTestRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: '/', component: { template: '<div />' } },
-      { path: '/people/:id', component: { template: '<div />' } },
+      { path: '/people', component: { template: '<div />' } },
       { path: '/events', component: { template: '<div />' } },
     ],
   })
@@ -38,70 +38,99 @@ describe('SearchPage', () => {
     expect(wrapper.find('[aria-label="搜索结果"]').exists()).toBe(false)
   })
 
-  it('does not update results immediately after input due to debounce', async () => {
+  it('首次输入后的防抖期间隐藏结果和错误空态', async () => {
     vi.useFakeTimers()
     const pinia = createPinia()
     setActivePinia(pinia)
-    const store = useHistoryStore()
-    store.createPerson({
-      name: '孙中山',
-      lifeTime: '1866-1925',
-      summary: '革命先行者',
-      biography: '',
-      achievements: '',
-      keywords: [],
-    })
 
     const wrapper = mount(SearchPage, {
       global: { plugins: [pinia, createTestRouter()] },
     })
 
-    await wrapper.get('.search-panel input').setValue('孙中山')
+    await wrapper.get('.search-panel input').setValue('孔子')
 
     expect(wrapper.find('[aria-label="搜索结果"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('没有找到匹配结果')
+    expect(wrapper.text()).toContain('正在搜索')
   })
 
-  it('updates results after the debounce delay elapses', async () => {
+  it('新关键词防抖期间立即隐藏旧结果，完成后显示新结果或无结果', async () => {
     vi.useFakeTimers()
     const pinia = createPinia()
     setActivePinia(pinia)
-    const store = useHistoryStore()
-    store.createPerson({
-      name: '孙中山',
-      lifeTime: '1866-1925',
-      summary: '革命先行者',
-      biography: '',
-      achievements: '',
-      keywords: [],
-    })
 
     const wrapper = mount(SearchPage, {
       global: { plugins: [pinia, createTestRouter()] },
     })
 
-    await wrapper.get('.search-panel input').setValue('孙中山')
+    await wrapper.get('.search-panel input').setValue('孔子')
+    vi.advanceTimersByTime(200)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[aria-label="搜索结果"]').text()).toContain('孔子')
+
+    await wrapper.get('.search-panel input').setValue('孟子')
+    expect(wrapper.find('[aria-label="搜索结果"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('孔子')
+    expect(wrapper.text()).not.toContain('没有找到匹配结果')
+
+    vi.advanceTimersByTime(200)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[aria-label="搜索结果"]').text()).toContain('孟子')
+    expect(wrapper.text()).not.toContain('孔子')
+
+    await wrapper.get('.search-panel input').setValue('不存在的人物')
+    expect(wrapper.find('[aria-label="搜索结果"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('孟子')
+    expect(wrapper.text()).not.toContain('没有找到匹配结果')
+
+    vi.advanceTimersByTime(200)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[aria-label="搜索结果"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('没有找到匹配结果')
+  })
+
+  it('按教材人物姓名搜索并在防抖后链接到人物抽屉 query', async () => {
+    vi.useFakeTimers()
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const wrapper = mount(SearchPage, {
+      global: { plugins: [pinia, createTestRouter()] },
+    })
+
+    await wrapper.get('.search-panel input').setValue('孔子')
     vi.advanceTimersByTime(200)
     await wrapper.vm.$nextTick()
 
     const results = wrapper.get('[aria-label="搜索结果"]')
 
-    expect(results.text()).toContain('孙中山')
+    expect(results.text()).toContain('孔子')
+    expect(
+      results.get('a[href="/people?person=g7u-confucius"]').attributes('href'),
+    ).toBe('/people?person=g7u-confucius')
   })
 
-  it('shows matched events and cards without a timeline group', async () => {
+  it('可以通过教材人物摘要搜索人物', async () => {
+    vi.useFakeTimers()
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const wrapper = mount(SearchPage, {
+      global: { plugins: [pinia, createTestRouter()] },
+    })
+
+    await wrapper.get('.search-panel input').setValue('重视教育')
+    vi.advanceTimersByTime(200)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('[aria-label="搜索结果"]').text()).toContain('孔子')
+  })
+
+  it('搜索教材事件和本地卡片并链接到事件详情', async () => {
     vi.useFakeTimers()
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useHistoryStore()
-    const event = store.createEvent({
-      timeLabel: '前221年',
-      title: '秦统一六国',
-      hint: '',
-      summary: '秦始皇建立秦朝',
-      detail: '',
-      keywords: ['统一'],
-      personIds: [],
-    })
     store.createCard({
       front: '秦朝建立于哪一年？',
       back: '前221年。',
@@ -121,13 +150,13 @@ describe('SearchPage', () => {
 
     const results = wrapper.get('[aria-label="搜索结果"]')
 
-    expect(results.text()).toContain('秦统一六国')
+    expect(results.text()).toContain('秦始皇统一六国')
     expect(results.text()).toContain('秦朝建立于哪一年')
     expect(results.text()).not.toContain('时间线')
     expect(
       results
-        .get(`a[href="/events?event=${event.id}"]`)
+        .get('a[href="/events?event=china-event-0029"]')
         .attributes('href'),
-    ).toBe(`/events?event=${event.id}`)
+    ).toBe('/events?event=china-event-0029')
   })
 })

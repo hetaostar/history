@@ -7,16 +7,30 @@ import {
 
 const timestamp = '2026-06-21T00:00:00.000Z'
 
-function createEvent(overrides: Record<string, unknown> = {}) {
+function createLegacyEvent() {
   return {
     id: 'event-1',
     timeLabel: '前221年',
-    title: '秦统一六国',
-    hint: '秦',
-    summary: '秦完成统一。',
-    detail: '秦灭六国。',
-    keywords: ['秦'],
+    title: '旧自建事件',
+    hint: '',
+    summary: '',
+    detail: '',
+    keywords: [],
     personIds: [],
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
+}
+
+function createCard(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'card-1',
+    front: '秦朝何时建立？',
+    back: '前221年',
+    hint: '',
+    keywords: [],
+    personIds: [],
+    eventIds: [],
     createdAt: timestamp,
     updatedAt: timestamp,
     ...overrides,
@@ -24,161 +38,170 @@ function createEvent(overrides: Record<string, unknown> = {}) {
 }
 
 describe('historySchema', () => {
-  it('uses a flat v2 schema without timelines', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(2)
+  it('使用仅含卡片和学习记录的 v4 本地数据结构', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(4)
     expect(createEmptyHistoryData()).toEqual({
-      version: 2,
-      events: [],
-      people: [],
+      version: 4,
       cards: [],
       studyRecords: [],
     })
   })
 
-  it('accepts valid v2 data', () => {
-    const data = {
-      ...createEmptyHistoryData(),
-      events: [createEvent()],
-    }
-
-    expect(parseHistoryData(data)).toEqual(data)
-  })
-
-  it('migrates v1 timelines to flat events without losing event data', () => {
+  it('读取 v3 时丢弃事件并过滤卡片的教材人物和事件引用', () => {
     const parsed = parseHistoryData({
-      version: 1,
-      timelines: [
-        {
-          id: 'timeline-1',
-          name: '中国近代史',
-          description: '',
-          tags: [],
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
-      ],
+      version: 3,
       events: [
-        createEvent({
-          timelineId: 'timeline-1',
-          title: '辛亥革命',
-          personIds: ['person-1'],
-        }),
-      ],
-      people: [
         {
-          id: 'person-1',
-          name: '孙中山',
-          lifeTime: '1866-1925',
-          summary: '革命家。',
-          biography: '',
-          achievements: '',
-          keywords: ['辛亥革命'],
-          createdAt: timestamp,
-          updatedAt: timestamp,
+          ...createLegacyEvent(),
+          personIds: ['unknown-person', 'g7u-confucius'],
         },
       ],
       cards: [
-        {
-          id: 'card-1',
-          front: '辛亥革命发生于哪一年？',
-          back: '1911年',
-          hint: '',
-          keywords: [],
-          personIds: ['person-1'],
-          eventIds: ['event-1'],
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
+        createCard({
+          personIds: ['unknown-person', 'g7u-confucius'],
+          eventIds: ['event-1', 'china-event-0029'],
+        }),
+      ],
+      studyRecords: [],
+    })
+
+    expect(parsed.cards[0].personIds).toEqual(['g7u-confucius'])
+    expect(parsed.cards[0].eventIds).toEqual(['china-event-0029'])
+    expect(parsed).not.toHaveProperty('events')
+    expect(parsed).not.toHaveProperty('people')
+  })
+
+  it('迁移旧数据时删除人物记录并仅保留教材事件及卡片学习记录', () => {
+    const parsed = parseHistoryData({
+      version: 2,
+      events: [createLegacyEvent()],
+      people: [],
+      cards: [
+        createCard({
+          eventIds: ['event-1', 'china-event-0029'],
+        }),
       ],
       studyRecords: [
         {
-          id: 'record-1',
+          id: 'legacy-event-record',
           targetType: 'event',
           targetId: 'event-1',
+          result: 'remembered',
+          createdAt: timestamp,
+        },
+        {
+          id: 'textbook-event-record',
+          targetType: 'event',
+          targetId: 'china-event-0029',
+          result: 'remembered',
+          createdAt: timestamp,
+        },
+        {
+          id: 'person-record',
+          targetType: 'person',
+          targetId: 'g7u-confucius',
+          result: 'remembered',
+          createdAt: timestamp,
+        },
+        {
+          id: 'card-record',
+          targetType: 'card',
+          targetId: 'card-1',
+          result: 'forgotten',
+          createdAt: timestamp,
+        },
+      ],
+    })
+
+    expect(parsed).toEqual({
+      version: 4,
+      cards: [
+        expect.objectContaining({
+          eventIds: ['china-event-0029'],
+        }),
+      ],
+      studyRecords: [
+        expect.objectContaining({ id: 'textbook-event-record' }),
+        expect.objectContaining({ id: 'card-record' }),
+      ],
+    })
+  })
+
+  it('迁移时删除指向不存在卡片的学习记录', () => {
+    const parsed = parseHistoryData({
+      version: 4,
+      cards: [],
+      studyRecords: [
+        {
+          id: 'orphan-card-record',
+          targetType: 'card',
+          targetId: 'missing-card',
           result: 'remembered',
           createdAt: timestamp,
         },
       ],
     })
 
-    expect(parsed.version).toBe(2)
-    expect(parsed).not.toHaveProperty('timelines')
-    expect(parsed.events[0]).toMatchObject({
-      id: 'event-1',
-      title: '辛亥革命',
-      personIds: ['person-1'],
-    })
-    expect(parsed.events[0]).not.toHaveProperty('timelineId')
-    expect(parsed.people[0]?.id).toBe('person-1')
-    expect(parsed.cards[0]?.eventIds).toEqual(['event-1'])
-    expect(parsed.studyRecords[0]).toMatchObject({
-      targetId: 'event-1',
-      result: 'remembered',
-    })
+    expect(parsed.studyRecords).toEqual([])
   })
 
-  it('migrates legacy data without a version through v1 to v2', () => {
-    const parsed = parseHistoryData({
-      timelines: [],
-      events: [],
-      people: [],
-      cards: [],
-      studyRecords: [],
-    })
-
-    expect(parsed).toEqual(createEmptyHistoryData())
+  it('继续接受无版本旧数据并迁移为空 v4 数据', () => {
+    expect(
+      parseHistoryData({
+        timelines: [],
+        events: [],
+        people: [],
+        cards: [],
+        studyRecords: [],
+      }),
+    ).toEqual(createEmptyHistoryData())
   })
 
-  it('rejects future schema versions and malformed collections', () => {
+  it('拒绝未来版本、缺失集合和畸形卡片', () => {
     expect(() =>
       parseHistoryData({ ...createEmptyHistoryData(), version: 999 }),
     ).toThrow('导入文件版本过高，请升级应用')
-    expect(() => parseHistoryData({ events: [] })).toThrow(
+    expect(() => parseHistoryData({ version: 4, cards: [] })).toThrow(
       '导入文件格式不正确',
     )
     expect(() =>
       parseHistoryData({
         ...createEmptyHistoryData(),
-        events: [{}],
+        cards: [{}],
       }),
     ).toThrow('导入文件格式不正确')
   })
 
-  it('normalizes legacy optional fields and leaked format prefixes', () => {
-    const parsed = parseHistoryData({
-      ...createEmptyHistoryData(),
-      events: [
-        createEvent({
-          timeLabel: 'date_format.bc前202年',
-          title: 'ate_format.bc汉朝建立',
-          hint: 'year_format.bc刘邦称帝',
-          summary: 'date_format.ad统一天下',
-          keywords: ['date_format.bc汉朝', '西汉'],
-          sortValue: -202,
+  it.each([-1, 0, 2.5, Number.NaN, '2'])(
+    '拒绝非法 schema 版本：%s',
+    (version) => {
+      expect(() =>
+        parseHistoryData({
+          ...createEmptyHistoryData(),
+          version,
+          timelines: [],
+          events: [],
+          people: [],
         }),
-      ],
+      ).toThrow('导入文件格式不正确')
+    },
+  )
+
+  it('清理卡片中泄漏的格式键并补齐旧版 hint', () => {
+    const parsed = parseHistoryData({
+      version: 4,
+      events: [],
       cards: [
-        {
-          id: 'card-1',
+        createCard({
           front: 'date_format.bc汉朝何时建立？',
           back: 'date_format.bc前202年',
+          hint: undefined,
           keywords: ['date_format.bc汉朝'],
-          personIds: [],
-          eventIds: [],
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
+        }),
       ],
+      studyRecords: [],
     })
 
-    expect(parsed.events[0]).toMatchObject({
-      timeLabel: '前202年',
-      title: '汉朝建立',
-      hint: '刘邦称帝',
-      summary: '统一天下',
-      keywords: ['汉朝', '西汉'],
-    })
-    expect(parsed.events[0]).not.toHaveProperty('sortValue')
     expect(parsed.cards[0]).toMatchObject({
       front: '汉朝何时建立？',
       back: '前202年',

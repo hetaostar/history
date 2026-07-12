@@ -2,6 +2,10 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import {
+  getAllTextbookEvents,
+  getAllTextbookPeople,
+} from '@/domain/textbookSelectors'
 import { useHistoryStore } from '@/stores/historyStore'
 import HomePage from './HomePage.vue'
 
@@ -11,7 +15,6 @@ function createTestRouter() {
     routes: [
       { path: '/', component: { template: '<div />' } },
       { path: '/people', component: { template: '<div />' } },
-      { path: '/people/:personId', component: { template: '<div />' } },
       { path: '/events', component: { template: '<div />' } },
       { path: '/cards', component: { template: '<div />' } },
       { path: '/search', component: { template: '<div />' } },
@@ -26,46 +29,18 @@ describe('HomePage', () => {
     setActivePinia(createPinia())
   })
 
-  it('空数据时显示事件与人物的空提示', () => {
-    const wrapper = mount(HomePage, {
-      global: { plugins: [createPinia(), createTestRouter()] },
-    })
-
-    const emptyNotes = wrapper.findAll('.empty-note')
-    expect(emptyNotes.length).toBeGreaterThanOrEqual(2)
-    expect(wrapper.text()).toContain('还没有事件。先添加一个需要背诵的事件。')
-    expect(wrapper.text()).not.toContain('时间线')
-    expect(wrapper.text()).toContain(
-      '还没有人物。把重要人物的生平、主张和关键词先归档。',
-    )
-  })
-
-  it('有数据时显示最近 3 条事件和最近 3 个人物', async () => {
+  it('使用去重后的教材人物数统计人物和全部学习材料', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useHistoryStore()
-    for (let i = 0; i < 5; i += 1) {
-      store.createEvent({
-        timeLabel: `184${i}年`,
-        title: `事件${i}`,
-        hint: '',
-        summary: `摘要${i}`,
-        detail: '',
-        keywords: [],
-        personIds: [],
-      })
-    }
-
-    for (let i = 0; i < 5; i += 1) {
-      store.createPerson({
-        name: `人物${i}`,
-        lifeTime: `180${i}-190${i}`,
-        summary: '',
-        biography: '',
-        achievements: '',
-        keywords: [],
-      })
-    }
+    store.createCard({
+      front: '秦朝建立于哪一年？',
+      back: '前221年。',
+      hint: '',
+      keywords: [],
+      personIds: [],
+      eventIds: [],
+    })
 
     const router = createTestRouter()
     await router.push('/')
@@ -74,13 +49,33 @@ describe('HomePage', () => {
       global: { plugins: [pinia, router] },
     })
 
-    // 最近 3 条事件
-    const recentEvents = wrapper.findAll('.recent-list li')
-    expect(recentEvents).toHaveLength(3)
+    const peopleCard = wrapper
+      .findAll('.feature-card')
+      .find((card) => card.get('strong').text() === '人物')
+    const eventCard = wrapper
+      .findAll('.feature-card')
+      .find((card) => card.get('strong').text() === '事件')
+    const uniquePeopleCount = new Set(
+      getAllTextbookPeople().map((person) => person.id),
+    ).size
+    const textbookEventCount = getAllTextbookEvents().length
+    const totalItems = uniquePeopleCount + textbookEventCount + store.cards.length
 
-    // 最近 3 个人物
-    const personChips = wrapper.findAll('.person-chip')
-    expect(personChips).toHaveLength(3)
+    expect(peopleCard?.text()).toContain(`${uniquePeopleCount} 项`)
+    expect(eventCard?.text()).toContain('112 项')
+    expect(wrapper.get('.archive-slip').text()).toContain(String(totalItems))
+    expect(wrapper.get('.archive-slip').text()).toContain(
+      `${uniquePeopleCount} 人物`,
+    )
+    expect(wrapper.get('.archive-slip').text()).toContain(
+      '112 事件',
+    )
+    expect(wrapper.text()).not.toContain('最近事件')
+    expect(wrapper.text()).not.toContain('人物抽屉')
+    expect(wrapper.find('.desk-layout').exists()).toBe(false)
+    expect(wrapper.find('.recent-list').exists()).toBe(false)
+    expect(wrapper.find('.person-strip').exists()).toBe(false)
+    expect(peopleCard?.text()).toContain('浏览教材人物')
   })
 
   it('feature-rail 的 RouterLink 跳转目标正确', async () => {

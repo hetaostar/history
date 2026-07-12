@@ -1,7 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, onMounted } from 'vue'
-import { DYNASTIES, KEY_EVENTS } from '@/data/chinaHistoryRiver'
+import { DYNASTIES } from '@/data/chinaHistoryRiver'
+import { getAllTextbookEvents } from '@/domain/textbookSelectors'
 import ChinaHistoryRiverPage from './ChinaHistoryRiverPage.vue'
 import chinaHistoryRiverPageSource from './ChinaHistoryRiverPage.vue?raw'
 
@@ -10,6 +11,7 @@ type ResizeObserverCallback = (entries: ResizeObserverEntry[]) => void
 const resizeObservers: FakeResizeObserver[] = []
 let measuredWidth = 1180
 let measuredHeight = 640
+const textbookEvents = getAllTextbookEvents()
 
 class FakeResizeObserver {
   callback: ResizeObserverCallback
@@ -111,7 +113,8 @@ describe('ChinaHistoryRiverPage', () => {
     expect(canvas.props('width')).toBe(1180)
     expect(canvas.props('height')).toBe(640)
     expect(canvas.props('dynasties')).toBe(DYNASTIES)
-    expect(canvas.props('events')).toBe(KEY_EVENTS)
+    expect(canvas.props('events')).toBe(textbookEvents)
+    expect(wrapper.text()).toContain('教材 · 只读 · 112 个事件')
   })
 
   it('尺寸为 0 时不绘制并显示明确状态', async () => {
@@ -135,7 +138,7 @@ describe('ChinaHistoryRiverPage', () => {
 
     await wrapper.get('[data-test="canvas"]').trigger('click')
     expect(wrapper.get('[data-test="detail"]').text()).toContain(
-      KEY_EVENTS[0].title,
+      textbookEvents[0].title,
     )
 
     await wrapper.get('[data-test="close-detail"]').trigger('click')

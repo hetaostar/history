@@ -2,9 +2,9 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { KEY_EVENTS } from '@/data/chinaHistoryRiver'
 import { formatHistoricalYear } from '@/domain/chinaRiverLayout'
 import { HISTORY_PERIODS } from '@/domain/historyPeriods'
+import { getAllTextbookEvents } from '@/domain/textbookSelectors'
 import { useHistoryStore } from '@/stores/historyStore'
 import EventListPage from './EventListPage.vue'
 
@@ -28,7 +28,7 @@ async function mountPage(path = '/events') {
   }
 }
 
-const sortedEvents = [...KEY_EVENTS].sort((a, b) => a.year - b.year)
+const sortedEvents = getAllTextbookEvents()
 
 enableAutoUnmount(afterEach)
 
@@ -46,11 +46,11 @@ describe('EventListPage', () => {
     document.body.innerHTML = ''
   })
 
-  it('按年份展示中华历史长河的全部事件卡片', async () => {
+  it('按年份展示全部教材事件卡片', async () => {
     const { wrapper } = await mountPage()
     const cards = wrapper.findAll('[data-test^="event-card-"]')
 
-    expect(cards).toHaveLength(KEY_EVENTS.length)
+    expect(cards).toHaveLength(112)
     expect(
       cards.map((card) => card.attributes('data-test')),
     ).toEqual(sortedEvents.map((event) => `event-card-${event.id}`))
@@ -60,7 +60,7 @@ describe('EventListPage', () => {
     expect(cards[cards.length - 1].text()).toContain(
       sortedEvents[sortedEvents.length - 1].title,
     )
-    expect(wrapper.text()).toContain(`内置 · 只读 · ${KEY_EVENTS.length} 个事件`)
+    expect(wrapper.text()).toContain('教材 · 只读 · 112 个事件')
   })
 
   it('按主要历史时期展示分界线和事件卡片', async () => {

@@ -19,6 +19,28 @@ const units: readonly ITextbookUnit[] = TEXTBOOK_UNITS
 const lessons: readonly ITextbookLesson[] = TEXTBOOK_LESSONS
 const people: readonly ITextbookPerson[] = TEXTBOOK_PEOPLE
 const events: readonly IHistoricalEvent[] = KEY_EVENTS
+const eventById = new Map(events.map((event) => [event.id, event]))
+const publishedTextbookIds = new Set(
+  textbooks
+    .filter((textbook) => textbook.status === 'published')
+    .map((textbook) => textbook.id),
+)
+const publishedUnitIds = new Set(
+  units
+    .filter((unit) => publishedTextbookIds.has(unit.textbookId))
+    .map((unit) => unit.id),
+)
+const textbookEventIds = new Set(
+  lessons
+    .filter((lesson) => publishedUnitIds.has(lesson.unitId))
+    .flatMap((lesson) => lesson.eventIds),
+)
+const textbookEvents = events
+  .filter((event) => textbookEventIds.has(event.id))
+  .sort(
+    (left, right) =>
+      left.year - right.year || left.id.localeCompare(right.id),
+  )
 
 export function getTextbookById(textbookId: string): ITextbook | undefined {
   return textbooks.find((textbook) => textbook.id === textbookId)
@@ -56,6 +78,27 @@ export function getTextbookPeople(
   textbookId: string,
 ): readonly ITextbookPerson[] {
   return people.filter((person) => person.textbookIds.includes(textbookId))
+}
+
+export function getAllTextbookPeople(): readonly ITextbookPerson[] {
+  return people
+}
+
+export function getAllTextbookEvents(): readonly IHistoricalEvent[] {
+  return textbookEvents
+}
+
+export function getTextbookEventById(
+  eventId: string,
+): IHistoricalEvent | undefined {
+  const event = eventById.get(eventId)
+  return event && textbookEventIds.has(eventId) ? event : undefined
+}
+
+export function getTextbookPersonById(
+  personId: string,
+): ITextbookPerson | undefined {
+  return people.find((person) => person.id === personId)
 }
 
 export function findLessonsByPersonId(

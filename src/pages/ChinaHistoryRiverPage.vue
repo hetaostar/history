@@ -3,8 +3,9 @@ import { onErrorCaptured, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import ChinaRiverCanvas from '@/components/ChinaRiverCanvas.vue'
 import RiverEventDetail from '@/components/RiverEventDetail.vue'
-import { DYNASTIES, KEY_EVENTS } from '@/data/chinaHistoryRiver'
+import { DYNASTIES } from '@/data/chinaHistoryRiver'
 import type { IHistoricalEvent } from '@/domain/chinaRiverTypes'
+import { getAllTextbookEvents } from '@/domain/textbookSelectors'
 
 const canvasContainer = ref<HTMLElement | null>(null)
 const canvasWidth = ref(0)
@@ -12,6 +13,7 @@ const canvasHeight = ref(0)
 const selectedEvent = ref<IHistoricalEvent | null>(null)
 const renderError = ref('')
 let resizeObserver: ResizeObserver | null = null
+const textbookEvents = getAllTextbookEvents()
 
 function measureCanvas(): void {
   const container = canvasContainer.value
@@ -63,7 +65,9 @@ onUnmounted(() => {
     <header class="river-heading">
       <div>
         <RouterLink class="back-link" to="/">返回主页</RouterLink>
-        <p class="eyebrow">内置 · 只读 · {{ KEY_EVENTS.length }} 个事件</p>
+        <p class="eyebrow">
+          教材 · 只读 · {{ textbookEvents.length }} 个事件
+        </p>
         <h1>中华历史长河</h1>
         <p class="description">
           以朝代兴衰为河床，沿时间脉络浏览中华文明的重要事件。
@@ -89,7 +93,7 @@ onUnmounted(() => {
           :width="canvasWidth"
           :height="canvasHeight"
           :dynasties="DYNASTIES"
-          :events="KEY_EVENTS"
+          :events="textbookEvents"
           @select="selectEvent"
         />
         <p v-else class="river-status" data-test="river-status" role="status">

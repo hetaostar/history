@@ -2,15 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useHistoryStore } from './historyStore'
 
-const eventInput = {
-  timeLabel: '1911年',
-  title: '辛亥革命',
-  hint: '革命',
-  summary: '推翻清朝统治。',
-  detail: '辛亥革命爆发。',
-  keywords: ['近代史'],
-  personIds: [] as string[],
-}
+const timestamp = '2026-06-21T00:00:00.000Z'
 
 describe('historyStore', () => {
   beforeEach(() => {
@@ -19,130 +11,137 @@ describe('historyStore', () => {
     setActivePinia(createPinia())
   })
 
-  it('creates flat events without a timeline', () => {
+  it('只持久化卡片和学习记录，不暴露事件 CRUD', () => {
     const store = useHistoryStore()
-    const event = store.createEvent(eventInput)
 
-    expect(event).not.toHaveProperty('timelineId')
-    expect(store.events).toHaveLength(1)
+    expect(store).not.toHaveProperty('events')
+    expect(store).not.toHaveProperty('createEvent')
+    expect(store).not.toHaveProperty('updateEvent')
+    expect(store).not.toHaveProperty('deleteEvent')
+    expect(store).not.toHaveProperty('sortedEvents')
+    expect(store).not.toHaveProperty('eventsByPerson')
   })
 
-  it('returns every event sorted by its time label', () => {
+  it('搜索教材事件、教材人物和本地卡片', () => {
     const store = useHistoryStore()
-    store.createEvent(eventInput)
-    store.createEvent({
-      ...eventInput,
-      timeLabel: '前221年',
-      title: '秦统一六国',
-    })
-    store.createEvent({
-      ...eventInput,
-      timeLabel: '1840年',
-      title: '鸦片战争',
-    })
-
-    expect(store.sortedEvents.map((event) => event.title)).toEqual([
-      '秦统一六国',
-      '鸦片战争',
-      '辛亥革命',
-    ])
-  })
-
-  it('searches only people, events and cards', () => {
-    const store = useHistoryStore()
-    store.createEvent(eventInput)
     store.createCard({
-      front: '辛亥革命发生在哪一年？',
-      back: '1911年',
-      keywords: ['辛亥革命'],
+      front: '秦始皇统一六国是哪一年？',
+      back: '公元前221年',
+      keywords: ['秦朝'],
       personIds: [],
-      eventIds: [],
+      eventIds: ['china-event-0029'],
     })
 
-    const result = store.search('辛亥')
+    const result = store.search('秦始皇')
 
-    expect(result).not.toHaveProperty('timelines')
-    expect(result.events).toHaveLength(1)
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        id: 'china-event-0029',
+        title: '秦始皇统一六国',
+      }),
+    )
     expect(result.cards).toHaveLength(1)
+    expect(result.people).toContainEqual(
+      expect.objectContaining({ id: 'g7u-qin-shihuang' }),
+    )
   })
 
-  it('removes a deleted event from cards and study records', () => {
-    const store = useHistoryStore()
-    const event = store.createEvent(eventInput)
-    const card = store.createCard({
-      front: '辛亥革命',
-      back: '1911年',
-      keywords: [],
-      personIds: [],
-      eventIds: [event.id],
-    })
-    store.recordStudy('event', event.id, 'remembered')
-
-    store.deleteEvent(event.id)
-
-    expect(store.events).toEqual([])
-    expect(store.cards.find((item) => item.id === card.id)?.eventIds).toEqual([])
-    expect(store.studyRecords).toEqual([])
-  })
-
-  it('removes a deleted person from related events', () => {
-    const store = useHistoryStore()
-    const person = store.createPerson({
-      name: '孙中山',
-      lifeTime: '1866-1925',
-      summary: '革命家。',
-      biography: '领导革命。',
-      achievements: '推动共和。',
-      keywords: ['近代史'],
-    })
-    store.createEvent({ ...eventInput, personIds: [person.id] })
-
-    store.deletePerson(person.id)
-
-    expect(store.events[0].personIds).toEqual([])
-  })
-
-  it('loads v1 local data and immediately persists the v2 migration', () => {
+  it('加载 v3 本地数据后立即持久化 v4 迁移结果', () => {
     localStorage.setItem(
       'history-memorization:data',
       JSON.stringify({
-        version: 1,
-        timelines: [],
-        events: [{ id: 'event-1', ...eventInput, createdAt: '', updatedAt: '' }],
-        people: [],
-        cards: [],
+        version: 3,
+        events: [
+          {
+            id: 'event-1',
+            timeLabel: '1911年',
+            title: '旧事件',
+            hint: '',
+            summary: '',
+            detail: '',
+            keywords: [],
+            personIds: [],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        ],
+        cards: [
+          {
+            id: 'card-1',
+            front: '秦始皇统一六国',
+            back: '公元前221年',
+            hint: '',
+            keywords: [],
+            personIds: [],
+            eventIds: ['event-1', 'china-event-0029'],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        ],
         studyRecords: [],
       }),
     )
 
     const store = useHistoryStore()
-    expect(store.version).toBe(2)
-    expect(store.events[0]).not.toHaveProperty('timelineId')
-
     const persisted = JSON.parse(
       localStorage.getItem('history-memorization:data') ?? '{}',
     )
-    expect(persisted.version).toBe(2)
-    expect(persisted).not.toHaveProperty('timelines')
+
+    expect(store.version).toBe(4)
+    expect(store.cards[0].eventIds).toEqual(['china-event-0029'])
+    expect(persisted.version).toBe(4)
+    expect(persisted).not.toHaveProperty('events')
   })
 
-  it('resets corrupted local data with a clear error', () => {
+  it('只记录现存卡片和教材事件的学习结果', () => {
+    const store = useHistoryStore()
+    const card = store.createCard({
+      front: '问题',
+      back: '答案',
+      keywords: [],
+      personIds: [],
+      eventIds: [],
+    })
+
+    expect(store.recordStudy('card', 'missing-card', 'remembered')).toBeUndefined()
+    expect(
+      store.recordStudy('event', 'missing-event', 'remembered'),
+    ).toBeUndefined()
+    expect(
+      store.recordStudy('person', 'g7u-confucius', 'remembered'),
+    ).toBeUndefined()
+    expect(store.recordStudy('card', card.id, 'remembered')).toBeDefined()
+    expect(
+      store.recordStudy('event', 'china-event-0029', 'remembered'),
+    ).toBeDefined()
+    expect(store.studyRecords).toHaveLength(2)
+  })
+
+  it('本地数据损坏时重置为空数据并报告错误', () => {
     localStorage.setItem('history-memorization:data', '{not valid json')
 
     const store = useHistoryStore()
 
-    expect(store.version).toBe(2)
-    expect(store.events).toEqual([])
+    expect(store.version).toBe(4)
+    expect(store.cards).toEqual([])
     expect(store.lastError).toBe('本地数据损坏，已重置为空数据。')
   })
 
-  it('reports local save failures without mentioning removed export', () => {
+  it('本地保存失败时不抛出异常并报告错误', () => {
     vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
       throw new Error('storage full')
     })
     const store = useHistoryStore()
 
-    expect(() => store.createEvent(eventInput)).not.toThrow()
+    expect(() =>
+      store.createCard({
+        front: '问题',
+        back: '答案',
+        keywords: [],
+        personIds: [],
+        eventIds: [],
+      }),
+    ).not.toThrow()
     expect(store.lastError).toBe('本地保存失败，请重试。')
   })
 })

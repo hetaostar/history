@@ -11,12 +11,12 @@ import { useRoute, useRouter } from 'vue-router'
 import EntityCard from '@/components/EntityCard.vue'
 import HistoryPeriodNavigation from '@/components/HistoryPeriodNavigation.vue'
 import RiverEventDetail from '@/components/RiverEventDetail.vue'
-import { KEY_EVENTS } from '@/data/chinaHistoryRiver'
 import { formatHistoricalYear } from '@/domain/chinaRiverLayout'
 import {
   groupHistoricalEventsByPeriod,
   HISTORY_PERIODS,
 } from '@/domain/historyPeriods'
+import { getAllTextbookEvents } from '@/domain/textbookSelectors'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,7 +25,10 @@ const activePeriodId = ref<string>(HISTORY_PERIODS[0].id)
 const appHeaderHeight = ref(0)
 let appHeaderObserver: ResizeObserver | null = null
 
-const periodGroups = computed(() => groupHistoricalEventsByPeriod(KEY_EVENTS))
+const textbookEvents = getAllTextbookEvents()
+const periodGroups = computed(() =>
+  groupHistoricalEventsByPeriod(textbookEvents),
+)
 const events = computed(() =>
   periodGroups.value.flatMap((group) => group.events),
 )
@@ -184,11 +187,15 @@ onBeforeUnmount(() => {
       <div class="catalog-heading">
         <div>
           <p class="catalog-meta">
-            内置 · 只读 · {{ events.length }} 个事件
+            教材 · 只读 · {{ events.length }} 个事件
           </p>
           <h2 id="event-catalog-title">中华历史事件卡片</h2>
         </div>
-        <span class="year-range">前2070年—2020年</span>
+        <span v-if="events.length" class="year-range">
+          {{ formatHistoricalYear(events[0].year) }}—{{
+            formatHistoricalYear(events[events.length - 1].year)
+          }}
+        </span>
       </div>
 
       <div class="catalog-layout">

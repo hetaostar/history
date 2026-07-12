@@ -157,31 +157,15 @@ describe('FlashcardPage', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useHistoryStore()
-    const person = store.createPerson({
-      name: '康有为',
-      lifeTime: '',
-      summary: '',
-      biography: '',
-      achievements: '',
-      keywords: [],
-    })
-    const event = store.createEvent({
-      timeLabel: '1898年',
-      title: '戊戌变法',
-      hint: '',
-      summary: '',
-      detail: '',
-      keywords: [],
-      personIds: [person.id],
-    })
-    store.createCard({
-      front: '戊戌变法的主要内容是什么？',
-      back: '维新变法。',
+    const card = store.createCard({
+      front: '秦统一六国是哪一年？',
+      back: '前221年。',
       hint: '',
       keywords: [],
-      personIds: [person.id],
-      eventIds: [event.id],
+      personIds: ['g7u-confucius'],
+      eventIds: ['china-event-0029'],
     })
+    card.personIds.push('unknown-person')
 
     const wrapper = mount(FlashcardPage, {
       global: {
@@ -194,8 +178,8 @@ describe('FlashcardPage', () => {
 
     const studyDialog = wrapper.get('[aria-label="背诵练习"]')
 
-    expect(studyDialog.text()).toContain('关联人物：康有为')
-    expect(studyDialog.text()).toContain('关联事件：戊戌变法')
+    expect(studyDialog.text()).toContain('关联人物：孔子、unknown-person')
+    expect(studyDialog.text()).toContain('关联事件：秦始皇统一六国')
   })
 
   it('discards unsaved card edit changes when closing the editor', async () => {
@@ -208,7 +192,7 @@ describe('FlashcardPage', () => {
       hint: '',
       keywords: [],
       personIds: [],
-      eventIds: ['event-1911'],
+      eventIds: ['china-event-0029'],
     })
 
     const wrapper = mount(FlashcardPage, {
@@ -229,7 +213,7 @@ describe('FlashcardPage', () => {
     await wrapper.get('.edit-card-button').trigger('click')
 
     expect(store.cards.find((item) => item.id === card.id)?.eventIds).toEqual([
-      'event-1911',
+      'china-event-0029',
     ])
     expect(
       wrapper.get('[role="dialog"][aria-label="编辑卡片"]').text(),
@@ -238,7 +222,7 @@ describe('FlashcardPage', () => {
       wrapper.findAll(
         '[role="dialog"][aria-label="编辑卡片"] input[placeholder="用英文逗号分隔"]',
       )[2].element,
-    ).toHaveProperty('value', 'event-1911')
+    ).toHaveProperty('value', 'china-event-0029')
   })
 
   it('uses the latest study result when a card is marked multiple times', async () => {

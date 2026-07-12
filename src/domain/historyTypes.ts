@@ -1,31 +1,6 @@
 export type StudyTargetType = 'person' | 'event' | 'card'
 export type StudyResult = 'remembered' | 'forgotten'
 
-export interface IHistoryEvent {
-  id: string
-  timeLabel: string
-  title: string
-  hint: string
-  summary: string
-  detail: string
-  keywords: string[]
-  personIds: string[]
-  createdAt: string
-  updatedAt: string
-}
-
-export interface IPerson {
-  id: string
-  name: string
-  lifeTime: string
-  summary: string
-  biography: string
-  achievements: string
-  keywords: string[]
-  createdAt: string
-  updatedAt: string
-}
-
 export interface IStudyCard {
   id: string
   front: string
@@ -48,8 +23,6 @@ export interface IStudyRecord {
 
 export interface IHistoryData {
   version: number
-  events: IHistoryEvent[]
-  people: IPerson[]
   cards: IStudyCard[]
   studyRecords: IStudyRecord[]
 }

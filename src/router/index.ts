@@ -41,10 +41,6 @@ export const router = createRouter({
       component: () => import('@/pages/PersonListPage.vue'),
     },
     {
-      path: '/people/:personId',
-      component: () => import('@/pages/PersonDetailPage.vue'),
-    },
-    {
       path: '/cards',
       component: () => import('@/pages/FlashcardPage.vue'),
     },

@@ -63,7 +63,6 @@ describe('router', () => {
       '/events',
       '/china-river',
       '/people',
-      '/people/person-1',
       '/cards',
       '/search',
     ]
@@ -71,5 +70,12 @@ describe('router', () => {
     legacyPaths.forEach((path) => {
       expect(router.resolve(path).matched).not.toHaveLength(0)
     })
+  })
+
+  it('人物详情改用列表页 query，不再注册独立详情路由', () => {
+    expect(router.resolve('/people?person=g7u-confucius').matched).toHaveLength(
+      1,
+    )
+    expect(router.resolve('/people/g7u-confucius').matched).toHaveLength(0)
   })
 })

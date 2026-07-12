@@ -309,15 +309,26 @@ describe('RiverEventDetail', () => {
     wrapper.unmount()
   })
 
-  it('记录内置事件学习结果时不修改用户事件', async () => {
+  it('记录教材事件学习结果时仅追加学习记录', async () => {
     const store = useHistoryStore()
-    const originalEvents = JSON.parse(JSON.stringify(store.events))
     const wrapper = mountDetail()
 
     await wrapper.get('[data-test="remembered"]').trigger('click')
     await wrapper.get('[data-test="forgotten"]').trigger('click')
 
-    expect(store.events).toEqual(originalEvents)
+    expect(store.studyRecords).toEqual([
+      expect.objectContaining({
+        targetType: 'event',
+        targetId: completeEvent.id,
+        result: 'remembered',
+      }),
+      expect.objectContaining({
+        targetType: 'event',
+        targetId: completeEvent.id,
+        result: 'forgotten',
+      }),
+    ])
+    expect(store).not.toHaveProperty('events')
     wrapper.unmount()
   })
 })

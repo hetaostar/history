@@ -11,10 +11,14 @@ import {
 import {
   findLessonsByEventId,
   findLessonsByPersonId,
+  getAllTextbookEvents,
+  getAllTextbookPeople,
   getTextbookById,
+  getTextbookEventById,
   getTextbookEventYearRange,
   getTextbookEvents,
   getTextbookLessons,
+  getTextbookPersonById,
   getTextbookPeople,
   getTextbookUnits,
 } from './textbookSelectors'
@@ -399,6 +403,58 @@ describe('课程事件映射', () => {
 })
 
 describe('教材查询层', () => {
+  it('汇总 112 个去重后并按年份及 ID 排序的教材事件', () => {
+    const events = getAllTextbookEvents()
+
+    expect(events).toHaveLength(112)
+    expectUniqueIds(events)
+    expect(events).toEqual(
+      [...events].sort(
+        (left, right) =>
+          left.year - right.year || left.id.localeCompare(right.id),
+      ),
+    )
+  })
+
+  it('仅包含已出版教材课程引用的事件', () => {
+    const publishedTextbookIds = new Set(
+      TEXTBOOKS.filter((textbook) => textbook.status === 'published').map(
+        (textbook) => textbook.id,
+      ),
+    )
+    const publishedUnitIds = new Set(
+      TEXTBOOK_UNITS.filter((unit) =>
+        publishedTextbookIds.has(unit.textbookId),
+      ).map((unit) => unit.id),
+    )
+    const publishedEventIds = new Set(
+      TEXTBOOK_LESSONS.filter((lesson) => publishedUnitIds.has(lesson.unitId))
+        .flatMap((lesson) => lesson.eventIds),
+    )
+
+    expect(new Set(getAllTextbookEvents().map((event) => event.id))).toEqual(
+      publishedEventIds,
+    )
+  })
+
+  it('仅按 ID 返回教材事件', () => {
+    expect(getTextbookEventById('china-event-0029')).toMatchObject({
+      id: 'china-event-0029',
+      title: '秦始皇统一六国',
+    })
+    expect(getTextbookEventById('china-event-0200')).toBeUndefined()
+    expect(getTextbookEventById('unknown-event')).toBeUndefined()
+  })
+
+  it('统一返回全部教材人物并按 ID 查询', () => {
+    expect(getAllTextbookPeople()).toEqual(TEXTBOOK_PEOPLE)
+    expect(getTextbookPersonById('g7u-confucius')).toMatchObject({
+      id: 'g7u-confucius',
+      name: '孔子',
+    })
+    expect(getTextbookPersonById('unknown-person')).toBeUndefined()
+  })
+
   it('按 ID 查询教材并安全处理未知 ID', () => {
     expect(getTextbookById('grade-7-up')?.title).toBe('七年级上册')
     expect(getTextbookById('unknown')).toBeUndefined()
