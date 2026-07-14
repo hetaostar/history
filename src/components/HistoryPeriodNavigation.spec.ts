@@ -73,24 +73,30 @@ describe('HistoryPeriodNavigation', () => {
     ).toBe('BUTTON')
   })
 
-  it('当前时期变化时把活动项滚动到导航可视区域', async () => {
+  it('当前时期变化时只滚动导航容器以露出活动项', async () => {
     const wrapper = mount(HistoryPeriodNavigation, {
       props: {
         periods: HISTORY_PERIODS,
         activePeriodId: 'xia',
       },
     })
-    const mingButton = wrapper.get(
-      '[data-test="period-navigation-ming"]',
-    ).element
+    const nav = wrapper.get('nav').element
+    const scrollTo = vi.fn()
+    Object.defineProperty(nav, 'scrollTo', {
+      configurable: true,
+      value: scrollTo,
+    })
 
     await wrapper.setProps({ activePeriodId: 'ming' })
     await flushPromises()
 
-    expect(mingButton.scrollIntoView).toHaveBeenCalledWith({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'nearest',
-    })
+    expect(scrollTo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        behavior: 'smooth',
+        top: expect.any(Number),
+        left: expect.any(Number),
+      }),
+    )
+    expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled()
   })
 })

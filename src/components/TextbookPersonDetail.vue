@@ -49,7 +49,7 @@ onMounted(() => {
     ref="containerRef"
     class="person-detail-overlay"
     data-test="textbook-person-detail"
-    data-layout="drawer"
+    data-layout="sheet"
     role="dialog"
     aria-modal="true"
     :aria-labelledby="titleId"
@@ -57,7 +57,7 @@ onMounted(() => {
   >
     <article
       class="person-detail-sheet"
-      data-test="textbook-person-detail-drawer"
+      data-test="textbook-person-detail-sheet"
     >
       <button
         class="close-button"
@@ -104,37 +104,55 @@ onMounted(() => {
 
 <style scoped>
 .person-detail-overlay {
+  --detail-navy: color-mix(in srgb, var(--bronze) 38%, var(--ink));
+  --detail-overlay-glow: color-mix(in srgb, var(--aged-gold) 14%, transparent);
+  --detail-overlay-scrim: color-mix(
+    in srgb,
+    var(--detail-navy) 88%,
+    transparent
+  );
+  --detail-paper-line: color-mix(in srgb, var(--muted-ink) 7%, transparent);
+  --detail-cinnabar-wash: color-mix(in srgb, var(--cinnabar) 10%, transparent);
+  --detail-shadow: color-mix(in srgb, var(--ink) 42%, transparent);
+  --detail-gold-inset: color-mix(in srgb, var(--aged-gold) 13%, transparent);
+
   position: fixed;
   inset: 0;
   z-index: 220;
-  display: flex;
-  align-items: stretch;
-  justify-content: flex-end;
-  padding: 0;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--ink) 84%, transparent);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow-y: auto;
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      var(--detail-overlay-glow),
+      transparent 35%
+    ),
+    var(--detail-overlay-scrim);
   animation: veil-in 180ms ease-out;
 }
 
 .person-detail-sheet {
   position: relative;
-  width: min(620px, 100%);
-  height: 100%;
-  min-height: 100%;
+  width: min(640px, 100%);
   padding: clamp(28px, 5vw, 52px);
-  overflow-y: auto;
   color: var(--ink);
   background:
+    linear-gradient(90deg, var(--detail-paper-line) 1px, transparent 1px) 0 0 /
+      32px 100%,
     radial-gradient(
       circle at 88% 8%,
-      color-mix(in srgb, var(--cinnabar) 10%, transparent),
+      var(--detail-cinnabar-wash),
       transparent 11rem
     ),
     var(--paper);
   border: 1px solid color-mix(in srgb, var(--aged-gold) 72%, var(--paper-deep));
-  border-radius: 18px 0 0 18px;
-  box-shadow: 0 32px 90px color-mix(in srgb, var(--ink) 42%, transparent);
-  animation: drawer-in 220ms ease-out;
+  border-radius: 18px;
+  box-shadow:
+    0 32px 90px var(--detail-shadow),
+    inset 0 0 0 4px var(--detail-gold-inset);
+  animation: sheet-in 220ms ease-out;
 }
 
 .close-button {
@@ -151,15 +169,26 @@ onMounted(() => {
   border: 1px solid color-mix(in srgb, var(--muted-ink) 28%, transparent);
   border-radius: 50%;
   place-items: center;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.close-button:hover {
+  color: var(--cinnabar);
+  border-color: var(--cinnabar);
+  transform: rotate(5deg);
 }
 
 .close-button:focus-visible,
 .lesson-link:focus-visible {
-  outline: 3px solid var(--cinnabar);
-  outline-offset: 3px;
+  outline: 3px solid var(--ink);
+  outline-offset: 4px;
 }
 
 .close-button span {
+  font-family: var(--font-utility);
   font-size: 26px;
   line-height: 1;
 }
@@ -176,7 +205,7 @@ onMounted(() => {
 }
 
 .person-lifetime {
-  color: var(--bronze);
+  color: var(--muted-ink);
   font-family: var(--font-utility);
   font-size: 14px;
   font-weight: 800;
@@ -186,8 +215,9 @@ onMounted(() => {
 .person-heading h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(32px, 6vw, 50px);
+  font-size: clamp(30px, 6vw, 48px);
   line-height: 1.12;
+  letter-spacing: -0.04em;
 }
 
 .person-summary {
@@ -197,6 +227,7 @@ onMounted(() => {
 }
 
 .ink-divider {
+  width: 100%;
   height: 9px;
   margin: 28px 0 24px;
   background:
@@ -246,36 +277,23 @@ onMounted(() => {
   }
 }
 
-@keyframes drawer-in {
+@keyframes sheet-in {
   from {
     opacity: 0;
-    transform: translateX(100%);
-  }
-}
-
-@keyframes bottom-drawer-in {
-  from {
-    opacity: 0;
-    transform: translateY(100%);
+    transform: translateY(10px) scale(0.985);
   }
 }
 
 @media (max-width: 560px) {
   .person-detail-overlay {
     align-items: end;
-    justify-content: stretch;
     padding: 12px;
   }
 
   .person-detail-sheet {
-    width: 100%;
-    height: auto;
-    min-height: 0;
     max-height: calc(100vh - 24px);
     padding: 32px 24px 26px;
     overflow-y: auto;
-    border-radius: 18px;
-    animation-name: bottom-drawer-in;
   }
 }
 
@@ -283,6 +301,10 @@ onMounted(() => {
   .person-detail-overlay,
   .person-detail-sheet {
     animation: none;
+  }
+
+  .close-button {
+    transition: none;
   }
 }
 </style>

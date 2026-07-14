@@ -108,13 +108,13 @@ async function mountDetail() {
 enableAutoUnmount(afterEach)
 
 describe('TextbookPersonDetail', () => {
-  it('明确声明当前页详情使用抽屉布局', async () => {
+  it('明确声明当前页详情使用居中弹层布局', async () => {
     const wrapper = await mountDetail()
     const dialog = wrapper.get('[role="dialog"]')
 
-    expect(dialog.attributes('data-layout')).toBe('drawer')
+    expect(dialog.attributes('data-layout')).toBe('sheet')
     expect(
-      wrapper.find('[data-test="textbook-person-detail-drawer"]').exists(),
+      wrapper.find('[data-test="textbook-person-detail-sheet"]').exists(),
     ).toBe(true)
   })
 

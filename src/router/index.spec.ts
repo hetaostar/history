@@ -1,7 +1,47 @@
 import { describe, expect, it } from 'vitest'
-import { router } from './index'
+import { router, scrollBehavior } from './index'
+import type { RouteLocationNormalized } from 'vue-router'
+
+function routeAt(path: string, hash = ''): RouteLocationNormalized {
+  return {
+    path,
+    hash,
+    fullPath: `${path}${hash}`,
+    name: undefined,
+    params: {},
+    query: {},
+    matched: [],
+    meta: {},
+    redirectedFrom: undefined,
+  }
+}
 
 describe('router', () => {
+  it('路由切换时回到页面顶部，保留后退位置与 hash 定位', async () => {
+    await expect(
+      scrollBehavior(routeAt('/people'), routeAt('/'), null),
+    ).resolves.toEqual({
+      top: 0,
+      left: 0,
+    })
+    await expect(
+      scrollBehavior(routeAt('/events'), routeAt('/'), null),
+    ).resolves.toEqual({
+      top: 0,
+      left: 0,
+    })
+    expect(
+      scrollBehavior(routeAt('/people'), routeAt('/'), { left: 0, top: 420 }),
+    ).toEqual({ left: 0, top: 420 })
+    await expect(
+      scrollBehavior(
+        routeAt('/people', '#period-tang'),
+        routeAt('/'),
+        null,
+      ),
+    ).resolves.toEqual({ el: '#period-tang' })
+  })
+
   it('将事件与中国历史长河解析到独立页面', () => {
     const events = router.resolve('/events')
     const river = router.resolve('/china-river')

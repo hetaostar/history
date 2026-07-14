@@ -13,20 +13,41 @@ const emit = defineEmits<{
 
 const navigationElement = ref<HTMLElement | null>(null)
 
+function scrollActiveButtonIntoNav(periodId: string): void {
+  const nav = navigationElement.value
+  const activeButton = nav?.querySelector<HTMLElement>(
+    `[data-period-id="${periodId}"]`,
+  )
+  if (!nav || !activeButton) {
+    return
+  }
+
+  const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+    .matches
+    ? 'auto'
+    : 'smooth'
+  const navRect = nav.getBoundingClientRect()
+  const buttonRect = activeButton.getBoundingClientRect()
+
+  // 只滚动导航容器，避免 scrollIntoView 连带把整页滚走
+  nav.scrollTo({
+    top:
+      nav.scrollTop +
+      (buttonRect.top - navRect.top) -
+      (navRect.height - buttonRect.height) / 2,
+    left:
+      nav.scrollLeft +
+      (buttonRect.left - navRect.left) -
+      (navRect.width - buttonRect.width) / 2,
+    behavior,
+  })
+}
+
 watch(
   () => props.activePeriodId,
   async (periodId) => {
     await nextTick()
-    const activeButton = navigationElement.value?.querySelector<HTMLElement>(
-      `[data-period-id="${periodId}"]`,
-    )
-    activeButton?.scrollIntoView({
-      behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-        ? 'auto'
-        : 'smooth',
-      block: 'nearest',
-      inline: 'nearest',
-    })
+    scrollActiveButtonIntoNav(periodId)
   },
 )
 </script>
