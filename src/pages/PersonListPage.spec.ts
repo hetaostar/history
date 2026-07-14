@@ -2,7 +2,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { TEXTBOOK_LESSONS, TEXTBOOK_PEOPLE } from '@/data/textbooks'
+import { TEXTBOOK_PEOPLE } from '@/data/textbooks'
 import { PERSON_HISTORY_PERIODS } from '@/domain/personHistoryPeriods'
 import PersonListPage from './PersonListPage.vue'
 
@@ -60,7 +60,7 @@ describe('PersonListPage', () => {
     expect(wrapper.findAll('[data-test^="person-card-"]')).toHaveLength(85)
   })
 
-  it('按历史时期唯一分组并保留人物的教材课程链接', async () => {
+  it('按历史时期唯一分组，卡片不含课程链接', async () => {
     const { wrapper } = await mountPage()
     const sections = wrapper.findAll('[data-test^="period-section-"]')
 
@@ -74,26 +74,30 @@ describe('PersonListPage', () => {
     expect(confuciusCard.text()).toContain('孔子')
     expect(confuciusCard.text()).toContain('前551—前479年')
     expect(confuciusCard.text()).toContain('儒家学派创始人')
-    expect(confuciusCard.text()).toContain('第7课 百家争鸣')
+    expect(confuciusCard.text()).not.toContain('第7课 百家争鸣')
     expect(
-      confuciusCard.get('[data-test="person-lesson-g7u-lesson-07"]').attributes(
-        'href',
-      ),
-    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-07')
+      wrapper.find('[data-test="person-lesson-g7u-lesson-07"]').exists(),
+    ).toBe(false)
     expect(wrapper.text()).toContain('朝代索引')
     expect(wrapper.text()).not.toContain('教材索引')
   })
 
-  it('人物详情按钮与课程链接为兄弟交互元素', async () => {
-    const { wrapper } = await mountPage()
+  it('人物卡片为 RouterLink，点击后详情内展示课程链接', async () => {
+    const { router, wrapper } = await mountPage()
     const card = wrapper.get('[data-test="person-card-g7u-confucius"]')
-    const detailButton = card.get('[data-test="open-person-g7u-confucius"]')
-    const lessonLink = card.get('[data-test="person-lesson-g7u-lesson-07"]')
 
-    expect(detailButton.element.tagName).toBe('BUTTON')
-    expect(lessonLink.element.tagName).toBe('A')
-    expect(detailButton.element.contains(lessonLink.element)).toBe(false)
-    expect(detailButton.element.parentElement).toBe(lessonLink.element.parentElement)
+    expect(card.element.tagName).toBe('A')
+    expect(card.find('[data-test^="person-lesson-"]').exists()).toBe(false)
+
+    await card.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.person).toBe('g7u-confucius')
+    const detail = wrapper.get('[data-test="textbook-person-detail"]')
+    expect(detail.text()).toContain('第7课 百家争鸣')
+    expect(
+      detail.get('[data-test="person-lesson-g7u-lesson-07"]').attributes('href'),
+    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-07')
   })
 
   it('不显示人物增删改、批删和事件新建入口', async () => {
@@ -125,13 +129,13 @@ describe('PersonListPage', () => {
     expect(wrapper.get('h1').text()).toBe('教材人物')
   })
 
-  it('点击人物按钮写入 query，关闭只移除 person 并保留其他 query/hash', async () => {
+  it('点击人物卡片写入 query，关闭只移除 person 并保留其他 query/hash', async () => {
     const person = TEXTBOOK_PEOPLE[0]
     const { router, wrapper } = await mountPage(
       '/people?mode=review#period-prehistory-legends',
     )
 
-    await wrapper.get(`[data-test="open-person-${person.id}"]`).trigger('click')
+    await wrapper.get(`[data-test="person-card-${person.id}"]`).trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.query).toEqual({
@@ -147,23 +151,10 @@ describe('PersonListPage', () => {
     expect(router.currentRoute.value.hash).toBe('#period-prehistory-legends')
   })
 
-  it('键盘激活课程链接不会打开人物详情', async () => {
-    const { router, wrapper } = await mountPage(
-      '/people#period-spring-autumn',
-    )
-    const lesson = TEXTBOOK_LESSONS.find((item) =>
-      (item.personIds as readonly string[]).includes('g7u-confucius'),
-    )!
+  it('列表卡片不包含课程链接', async () => {
+    const { wrapper } = await mountPage('/people#period-spring-autumn')
 
-    await wrapper
-      .get(`[data-test="person-lesson-${lesson.id}"]`)
-      .trigger('keydown', { key: 'Enter' })
-    await wrapper
-      .get(`[data-test="person-lesson-${lesson.id}"]`)
-      .trigger('click')
-    await flushPromises()
-
-    expect(router.currentRoute.value.query).not.toHaveProperty('person')
+    expect(wrapper.find('[data-test^="person-lesson-"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="textbook-person-detail"]').exists()).toBe(
       false,
     )

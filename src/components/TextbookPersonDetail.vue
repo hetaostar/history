@@ -70,12 +70,19 @@ onMounted(() => {
       </button>
 
       <header class="person-heading">
-        <p class="person-lifetime">{{ person.lifeTime }}</p>
+        <div class="person-marks">
+          <p class="person-lifetime" data-test="person-lifetime">
+            {{ person.lifeTime }}
+          </p>
+        </div>
         <h2 :id="titleId">{{ person.name }}</h2>
-        <p class="person-summary">{{ person.summary }}</p>
       </header>
 
       <div class="ink-divider" aria-hidden="true"></div>
+
+      <p class="person-summary" data-test="person-summary">
+        {{ person.summary }}
+      </p>
 
       <section class="textbook-memberships" aria-label="所属教材与课程">
         <article
@@ -194,17 +201,14 @@ onMounted(() => {
 }
 
 .person-heading {
-  display: grid;
-  gap: 12px;
   padding-right: 34px;
 }
 
-.person-lifetime,
-.person-summary {
-  margin: 0;
-}
-
-.person-lifetime {
+.person-marks {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   color: var(--muted-ink);
   font-family: var(--font-utility);
   font-size: 14px;
@@ -212,18 +216,17 @@ onMounted(() => {
   letter-spacing: 0.08em;
 }
 
-.person-heading h2 {
+.person-lifetime {
   margin: 0;
+  color: var(--cinnabar);
+}
+
+.person-heading h2 {
+  margin: 10px 0 0;
   font-family: var(--font-display);
   font-size: clamp(30px, 6vw, 48px);
   line-height: 1.12;
   letter-spacing: -0.04em;
-}
-
-.person-summary {
-  color: var(--muted-ink);
-  font-size: 17px;
-  line-height: 1.8;
 }
 
 .ink-divider {
@@ -238,9 +241,19 @@ onMounted(() => {
   opacity: 0.72;
 }
 
+.person-summary {
+  min-height: 4.8em;
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
+
 .textbook-memberships {
   display: grid;
   gap: 24px;
+  margin-top: 28px;
 }
 
 .textbook-membership {

@@ -8,7 +8,8 @@ import {
   watch,
   type ComponentPublicInstance,
 } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import EntityCard from '@/components/EntityCard.vue'
 import HistoryPeriodNavigation from '@/components/HistoryPeriodNavigation.vue'
 import TextbookPersonDetail from '@/components/TextbookPersonDetail.vue'
 import {
@@ -45,13 +46,6 @@ const selectedPerson = computed(() => {
       .find((entry) => entry.person.id === personId)?.person ?? null
   )
 })
-
-function openPersonDetail(personId: string): void {
-  void router.replace({
-    query: { ...route.query, person: personId },
-    hash: route.hash,
-  })
-}
 
 function closePersonDetail(): void {
   const query = { ...route.query }
@@ -243,38 +237,24 @@ onBeforeUnmount(() => {
             </header>
 
             <div v-if="group.entries.length" class="person-grid">
-              <article
+              <RouterLink
                 v-for="entry in group.entries"
                 :key="entry.person.id"
-                class="person-card"
+                class="person-card-link"
                 :data-test="`person-card-${entry.person.id}`"
+                :to="{
+                  query: { ...route.query, person: entry.person.id },
+                  hash: route.hash,
+                }"
+                replace
+                :aria-label="`查看${entry.person.name}详情`"
               >
-                <button
-                  class="person-detail-button"
-                  :data-test="`open-person-${entry.person.id}`"
-                  type="button"
-                  :aria-label="`查看${entry.person.name}详情`"
-                  @click="openPersonDetail(entry.person.id)"
-                >
-                  <span class="person-lifetime">{{ entry.person.lifeTime }}</span>
-                  <strong>{{ entry.person.name }}</strong>
-                  <span class="person-summary">{{ entry.person.summary }}</span>
-                </button>
-                <template
-                  v-for="membership in entry.memberships"
-                  :key="membership.textbook.id"
-                >
-                  <RouterLink
-                    v-for="lesson in membership.lessons"
-                    :key="lesson.id"
-                    class="lesson-link"
-                    :data-test="`person-lesson-${lesson.id}`"
-                    :to="`/textbooks/${membership.textbook.id}/lessons/${lesson.id}`"
-                  >
-                    第{{ lesson.lessonNumber }}课 {{ lesson.title }}
-                  </RouterLink>
-                </template>
-              </article>
+                <EntityCard
+                  :title="entry.person.name"
+                  :subtitle="entry.person.lifeTime"
+                  :summary="entry.person.summary"
+                />
+              </RouterLink>
             </div>
             <p v-else class="period-empty">暂无收录人物</p>
           </section>
@@ -477,63 +457,34 @@ onBeforeUnmount(() => {
   border-radius: 14px;
 }
 
-.person-card {
-  display: grid;
-  align-content: start;
-  gap: 8px;
+.person-card-link {
+  display: block;
   min-width: 0;
-  padding: 18px;
-  background: color-mix(in srgb, var(--paper) 94%, transparent);
-  border: 1px solid color-mix(in srgb, var(--muted-ink) 18%, transparent);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 8%, transparent);
-}
-
-.person-detail-button {
-  display: grid;
-  gap: 9px;
-  width: 100%;
-  padding: 0 0 12px;
+  padding: 0;
   color: inherit;
   text-align: left;
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--muted-ink) 16%, transparent);
-}
-
-.person-detail-button strong {
-  font-family: var(--font-display);
-  font-size: 24px;
-}
-
-.person-lifetime {
-  color: var(--bronze);
-  font-family: var(--font-utility);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.person-summary {
-  color: var(--muted-ink);
-  line-height: 1.65;
-}
-
-.lesson-link {
-  display: block;
-  padding: 7px 9px;
-  color: var(--ink);
-  font-size: 13px;
+  border-radius: 16px;
   text-decoration: none;
-  background: color-mix(in srgb, var(--aged-gold) 9%, transparent);
-  border-radius: 8px;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
-.person-detail-button:focus-visible,
-.lesson-link:focus-visible {
+.person-card-link :deep(.entity-card) {
+  height: 100%;
+}
+
+.person-card-link:hover {
+  box-shadow: 0 18px 36px color-mix(in srgb, var(--ink) 14%, transparent);
+  transform: translateY(-3px);
+}
+
+.person-card-link:focus-visible {
   outline: 3px solid var(--cinnabar);
-  outline-offset: 3px;
+  outline-offset: 4px;
 }
 
 @media (max-width: 620px) {
@@ -575,8 +526,8 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .person-card {
-    scroll-behavior: auto;
+  .person-card-link {
+    transition: none;
   }
 }
 </style>

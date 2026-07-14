@@ -123,8 +123,27 @@ describe('TextbookPersonDetail', () => {
 
     expect(wrapper.get('[role="dialog"]').attributes('aria-modal')).toBe('true')
     expect(wrapper.get('h2').text()).toBe(person.name)
-    expect(wrapper.text()).toContain(person.lifeTime)
-    expect(wrapper.text()).toContain(person.summary)
+    expect(wrapper.get('[data-test="person-lifetime"]').text()).toBe(
+      person.lifeTime,
+    )
+    expect(wrapper.get('[data-test="person-summary"]').text()).toBe(
+      person.summary,
+    )
+  })
+
+  it('摘要位于分隔线下方，生卒位于标题上方', async () => {
+    const wrapper = await mountDetail()
+    const sheet = wrapper.get('[data-test="textbook-person-detail-sheet"]')
+    const html = sheet.element.innerHTML
+    const lifetimeIndex = html.indexOf('data-test="person-lifetime"')
+    const titleIndex = html.indexOf(`>${person.name}<`)
+    const dividerIndex = html.indexOf('ink-divider')
+    const summaryIndex = html.indexOf('data-test="person-summary"')
+
+    expect(lifetimeIndex).toBeGreaterThan(-1)
+    expect(titleIndex).toBeGreaterThan(lifetimeIndex)
+    expect(dividerIndex).toBeGreaterThan(titleIndex)
+    expect(summaryIndex).toBeGreaterThan(dividerIndex)
   })
 
   it('按所属教材隔离展示跨册课程', async () => {
