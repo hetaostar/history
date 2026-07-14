@@ -14,12 +14,20 @@ import type {
   ITextbookUnit,
 } from './textbookTypes'
 
+export interface IEventLessonMembership {
+  readonly textbook: ITextbook
+  readonly lessons: readonly ITextbookLesson[]
+}
+
 const textbooks: readonly ITextbook[] = TEXTBOOKS
 const units: readonly ITextbookUnit[] = TEXTBOOK_UNITS
 const lessons: readonly ITextbookLesson[] = TEXTBOOK_LESSONS
 const people: readonly ITextbookPerson[] = TEXTBOOK_PEOPLE
 const events: readonly IHistoricalEvent[] = KEY_EVENTS
 const eventById = new Map(events.map((event) => [event.id, event]))
+const textbookIdByUnitId = new Map(
+  units.map((unit) => [unit.id, unit.textbookId]),
+)
 const publishedTextbookIds = new Set(
   textbooks
     .filter((textbook) => textbook.status === 'published')
@@ -117,6 +125,36 @@ export function findLessonsByEventId(
   const candidates =
     textbookId === undefined ? lessons : getTextbookLessons(textbookId)
   return candidates.filter((lesson) => lesson.eventIds.includes(eventId))
+}
+
+export function findLessonMembershipsByEventId(
+  eventId: string,
+): readonly IEventLessonMembership[] {
+  const matchedLessons = findLessonsByEventId(eventId).filter((lesson) =>
+    publishedUnitIds.has(lesson.unitId),
+  )
+  const lessonsByTextbookId = new Map<string, ITextbookLesson[]>()
+
+  for (const lesson of matchedLessons) {
+    const textbookId = textbookIdByUnitId.get(lesson.unitId)
+    if (!textbookId || !publishedTextbookIds.has(textbookId)) {
+      continue
+    }
+
+    const textbookLessons = lessonsByTextbookId.get(textbookId) ?? []
+    textbookLessons.push(lesson)
+    lessonsByTextbookId.set(textbookId, textbookLessons)
+  }
+
+  return textbooks
+    .filter((textbook) => lessonsByTextbookId.has(textbook.id))
+    .sort((left, right) => left.order - right.order)
+    .map((textbook) => ({
+      textbook,
+      lessons: [...(lessonsByTextbookId.get(textbook.id) ?? [])].sort(
+        (left, right) => left.lessonNumber - right.lessonNumber,
+      ),
+    }))
 }
 
 export function getTextbookEventYearRange(

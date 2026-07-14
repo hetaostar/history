@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import RiverEventDetail from './RiverEventDetail.vue'
 import riverEventDetailSource from './RiverEventDetail.vue?raw'
 import { safeLocalStorage } from '@/domain/safeLocalStorage'
@@ -17,10 +18,24 @@ const completeEvent: IHistoricalEvent = {
   importance: 1,
 }
 
-function mountDetail(event: IHistoricalEvent = completeEvent) {
+async function mountDetail(event: IHistoricalEvent = completeEvent) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: { template: '<div />' } },
+      {
+        path: '/textbooks/:textbookId/lessons/:lessonId',
+        component: { template: '<div />' },
+      },
+    ],
+  })
+  await router.push('/')
+  await router.isReady()
+
   return mount(RiverEventDetail, {
     attachTo: document.body,
     props: { event },
+    global: { plugins: [router] },
   })
 }
 
@@ -38,8 +53,8 @@ describe('RiverEventDetail', () => {
     vi.restoreAllMocks()
   })
 
-  it('显示完整事件字段、格式化年份和中文类型标签', () => {
-    const wrapper = mountDetail()
+  it('显示完整事件字段、格式化年份和中文类型标签', async () => {
+    const wrapper = await mountDetail()
 
     expect(wrapper.get('[data-test="event-year"]').text()).toBe('公元前221年')
     expect(wrapper.get('h2').text()).toBe('秦始皇统一六国')
@@ -51,8 +66,38 @@ describe('RiverEventDetail', () => {
     wrapper.unmount()
   })
 
+  it('在详情中按教材展示关联课程链接', async () => {
+    const wrapper = await mountDetail()
+
+    expect(wrapper.get('[data-test="event-lesson-memberships"]').text()).toContain(
+      '七年级上册',
+    )
+    expect(wrapper.get('[data-test="event-lesson-g7u-lesson-09"]').text()).toBe(
+      '第9课 秦统一中国',
+    )
+    expect(
+      wrapper
+        .get('[data-test="event-lesson-g7u-lesson-09"]')
+        .attributes('href'),
+    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-09')
+
+    wrapper.unmount()
+  })
+
   it('只读模式无需安装 Pinia 且不暴露任何学习记录界面', async () => {
     setActivePinia(undefined)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        {
+          path: '/textbooks/:textbookId/lessons/:lessonId',
+          component: { template: '<div />' },
+        },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
 
     const wrapper = mount(RiverEventDetail, {
       attachTo: document.body,
@@ -60,6 +105,7 @@ describe('RiverEventDetail', () => {
         event: completeEvent,
         readOnly: true,
       },
+      global: { plugins: [router] },
     })
 
     expect(wrapper.get('h2').text()).toBe(completeEvent.title)
@@ -67,6 +113,9 @@ describe('RiverEventDetail', () => {
     expect(wrapper.get('[data-test="event-type"]').text()).toBe('政治')
     expect(wrapper.get('[data-test="event-description"]').text()).toBe(
       completeEvent.description,
+    )
+    expect(wrapper.find('[data-test="event-lesson-g7u-lesson-09"]').exists()).toBe(
+      true,
     )
     expect(wrapper.find('[data-test="study-status"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="remembered"]').exists()).toBe(false)
@@ -82,8 +131,8 @@ describe('RiverEventDetail', () => {
     ['culture', '文化'],
     ['politics', '政治'],
     ['science', '科技'],
-  ] as const)('将 %s 类型显示为%s', (type, expectedLabel) => {
-    const wrapper = mountDetail({ ...completeEvent, type })
+  ] as const)('将 %s 类型显示为%s', async (type, expectedLabel) => {
+    const wrapper = await mountDetail({ ...completeEvent, type })
 
     expect(wrapper.get('[data-test="event-type"]').text()).toBe(expectedLabel)
 
@@ -91,7 +140,7 @@ describe('RiverEventDetail', () => {
   })
 
   it('显示公元年份并为缺少或空白的描述提供本地兜底文案', async () => {
-    const wrapper = mountDetail({
+    const wrapper = await mountDetail({
       ...completeEvent,
       year: 1949,
       description: undefined,
@@ -113,7 +162,7 @@ describe('RiverEventDetail', () => {
   })
 
   it('提供可访问模态语义并通过关闭按钮和遮罩 emit close', async () => {
-    const wrapper = mountDetail()
+    const wrapper = await mountDetail()
     const dialog = wrapper.get('[role="dialog"]')
     const title = wrapper.get('h2')
     const closeButton = wrapper.get('[data-test="close"]')
@@ -132,9 +181,9 @@ describe('RiverEventDetail', () => {
     wrapper.unmount()
   })
 
-  it('多个独立挂载的详情弹窗仍使用唯一标题 ID 并保持准确关联', () => {
-    const firstWrapper = mountDetail()
-    const secondWrapper = mountDetail({
+  it('多个独立挂载的详情弹窗仍使用唯一标题 ID 并保持准确关联', async () => {
+    const firstWrapper = await mountDetail()
+    const secondWrapper = await mountDetail({
       ...completeEvent,
       id: 'china-event-0030',
       title: '修筑灵渠',
@@ -173,6 +222,19 @@ describe('RiverEventDetail', () => {
     document.body.appendChild(trigger)
     trigger.focus()
 
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        {
+          path: '/textbooks/:textbookId/lessons/:lessonId',
+          component: { template: '<div />' },
+        },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+
     const isOpen = ref(true)
     const Host = defineComponent({
       components: { RiverEventDetail },
@@ -185,7 +247,10 @@ describe('RiverEventDetail', () => {
         />
       `,
     })
-    const wrapper = mount(Host, { attachTo: document.body })
+    const wrapper = mount(Host, {
+      attachTo: document.body,
+      global: { plugins: [router] },
+    })
 
     await nextTick()
     await nextTick()
@@ -206,7 +271,7 @@ describe('RiverEventDetail', () => {
   })
 
   it('在首尾按钮之间循环 Tab 焦点', async () => {
-    const wrapper = mountDetail()
+    const wrapper = await mountDetail()
     await nextTick()
     await nextTick()
 
@@ -239,7 +304,7 @@ describe('RiverEventDetail', () => {
     ['forgotten', '没记住'],
   ] as const)('点击%s按钮写入正确的事件学习记录', async (result, label) => {
     const store = useHistoryStore()
-    const wrapper = mountDetail()
+    const wrapper = await mountDetail()
 
     await wrapper.get(`[data-test="${result}"]`).trigger('click')
 
@@ -254,7 +319,7 @@ describe('RiverEventDetail', () => {
     wrapper.unmount()
   })
 
-  it('按 createdAt 和同时间数组顺序显示稳定 ID 的最近结果', () => {
+  it('按 createdAt 和同时间数组顺序显示稳定 ID 的最近结果', async () => {
     const store = useHistoryStore()
     store.studyRecords.push(
       {
@@ -287,7 +352,7 @@ describe('RiverEventDetail', () => {
       },
     )
 
-    const wrapper = mountDetail()
+    const wrapper = await mountDetail()
 
     expect(wrapper.get('[data-test="study-status"]').text()).toContain('没记住')
     wrapper.unmount()
@@ -296,7 +361,7 @@ describe('RiverEventDetail', () => {
   it('本地保存失败时保留新增记录和当前状态并显示 store 错误', async () => {
     vi.spyOn(safeLocalStorage, 'setItem').mockReturnValue(false)
     const store = useHistoryStore()
-    const wrapper = mountDetail()
+    const wrapper = await mountDetail()
 
     await wrapper.get('[data-test="remembered"]').trigger('click')
 
@@ -311,7 +376,7 @@ describe('RiverEventDetail', () => {
 
   it('记录教材事件学习结果时仅追加学习记录', async () => {
     const store = useHistoryStore()
-    const wrapper = mountDetail()
+    const wrapper = await mountDetail()
 
     await wrapper.get('[data-test="remembered"]').trigger('click')
     await wrapper.get('[data-test="forgotten"]').trigger('click')

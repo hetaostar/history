@@ -4,9 +4,11 @@ let riverEventDetailInstanceId = 0
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { formatHistoricalYear } from '@/domain/chinaRiverLayout'
 import { useModalBehavior } from '@/composables/useModalBehavior'
 import { useHistoryStore } from '@/stores/historyStore'
+import { findLessonMembershipsByEventId } from '@/domain/textbookSelectors'
 import type {
   HistoricalEventType,
   IHistoricalEvent,
@@ -43,6 +45,10 @@ const description = computed(() => {
   const localDescription = props.event.description?.trim()
   return localDescription || '暂无更多本地资料'
 })
+
+const lessonMemberships = computed(() =>
+  findLessonMembershipsByEventId(props.event.id),
+)
 
 const latestStudyResult = computed<StudyResult | undefined>(() => {
   if (!store || props.readOnly) return undefined
@@ -118,6 +124,33 @@ onMounted(() => {
       <p class="event-description" data-test="event-description">
         {{ description }}
       </p>
+
+      <section
+        v-if="lessonMemberships.length"
+        class="textbook-memberships"
+        aria-label="所属教材与课程"
+        data-test="event-lesson-memberships"
+      >
+        <article
+          v-for="membership in lessonMemberships"
+          :key="membership.textbook.id"
+          class="textbook-membership"
+          :data-test="`event-textbook-${membership.textbook.id}`"
+        >
+          <h3>{{ membership.textbook.title }}</h3>
+          <ul class="lesson-list">
+            <li v-for="lesson in membership.lessons" :key="lesson.id">
+              <RouterLink
+                class="lesson-link"
+                :data-test="`event-lesson-${lesson.id}`"
+                :to="`/textbooks/${membership.textbook.id}/lessons/${lesson.id}`"
+              >
+                第{{ lesson.lessonNumber }}课 {{ lesson.title }}
+              </RouterLink>
+            </li>
+          </ul>
+        </article>
+      </section>
 
       <footer v-if="!readOnly && store" class="study-panel">
         <p class="study-question">这件事记住了吗？</p>
@@ -291,6 +324,40 @@ h2 {
   white-space: pre-wrap;
 }
 
+.textbook-memberships {
+  display: grid;
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.textbook-membership {
+  display: grid;
+  gap: 12px;
+}
+
+.textbook-membership h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.lesson-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.lesson-link {
+  display: block;
+  padding: 10px 12px;
+  color: var(--ink);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--aged-gold) 9%, transparent);
+  border-left: 3px solid var(--cinnabar);
+}
+
 .study-panel {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -357,6 +424,7 @@ h2 {
 }
 
 .close-button:focus-visible,
+.lesson-link:focus-visible,
 .study-button:focus-visible {
   outline: 3px solid var(--ink);
   outline-offset: 4px;

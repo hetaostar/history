@@ -13,7 +13,13 @@ async function mountPage(path = '/events') {
   setActivePinia(pinia)
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/events', component: EventListPage }],
+    routes: [
+      { path: '/events', component: EventListPage },
+      {
+        path: '/textbooks/:textbookId/lessons/:lessonId',
+        component: { template: '<div />' },
+      },
+    ],
   })
   await router.push(path)
   await router.isReady()
@@ -201,6 +207,32 @@ describe('EventListPage', () => {
     expect(wrapper.get('[data-test="event-detail-overlay"]').text()).toContain(
       event.title,
     )
+  })
+
+  it('列表卡片不展示课程，详情弹层展示关联课程', async () => {
+    const { wrapper } = await mountPage()
+    const eventCard = wrapper.get('[data-test="event-card-china-event-0012"]')
+
+    expect(eventCard.text()).toContain('孔子诞生')
+    expect(eventCard.find('[data-test^="event-lesson-"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="event-lesson-memberships"]').exists()).toBe(
+      false,
+    )
+
+    await eventCard.trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.get('[data-test="event-lesson-memberships"]').text(),
+    ).toContain('七年级上册')
+    expect(wrapper.get('[data-test="event-lesson-g7u-lesson-07"]').text()).toBe(
+      '第7课 百家争鸣',
+    )
+    expect(
+      wrapper
+        .get('[data-test="event-lesson-g7u-lesson-07"]')
+        .attributes('href'),
+    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-07')
   })
 
   it('无效 event query 安全回落到卡片列表', async () => {

@@ -9,6 +9,7 @@ import {
   TEXTBOOKS,
 } from '../data/textbooks'
 import {
+  findLessonMembershipsByEventId,
   findLessonsByEventId,
   findLessonsByPersonId,
   getAllTextbookEvents,
@@ -555,6 +556,19 @@ describe('教材查询层', () => {
     expect(findLessonsByPersonId('unknown-person', 'grade-7-up')).toEqual([])
     expect(findLessonsByEventId('unknown-event')).toEqual([])
     expect(findLessonsByEventId('unknown-event', 'grade-7-up')).toEqual([])
+    expect(findLessonMembershipsByEventId('unknown-event')).toEqual([])
+  })
+
+  it('按教材分组返回事件关联课程 memberships', () => {
+    const memberships = findLessonMembershipsByEventId('china-event-0012')
+
+    expect(memberships).toHaveLength(1)
+    expect(memberships[0].textbook.id).toBe('grade-7-up')
+    expect(memberships[0].lessons.map((lesson) => lesson.id)).toEqual([
+      'g7u-lesson-07',
+    ])
+    expect(memberships[0].lessons[0].lessonNumber).toBe(7)
+    expect(memberships[0].lessons[0].title).toBe('百家争鸣')
   })
 
   it('由关联事件计算本册年份范围', () => {
