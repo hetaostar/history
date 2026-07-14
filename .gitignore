@@ -29,6 +29,11 @@ pnpm-debug.log*
 .vite/
 .vitest/
 skills-lock.json
+hosting-comparison/
+
+# Trae local artifacts
+.trae-html-share-packages/
+.uploads/
 
 # Editor and OS files
 .DS_Store
