@@ -89,7 +89,7 @@ describe('ChinaHistoryRiverPage', () => {
     expect(wrapper.text()).not.toContain('时间线列表')
   })
 
-  it('使用页面内独立深色主题且不修改全局 body', () => {
+  it('使用页面内主题变量供画布继承且不修改全局 body', () => {
     const style =
       chinaHistoryRiverPageSource.match(
         /<style scoped>([\s\S]*?)<\/style>/,

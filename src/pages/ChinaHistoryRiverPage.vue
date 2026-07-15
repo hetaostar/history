@@ -28,6 +28,7 @@ const textbookEvents = getAllTextbookEvents()
 
 <style scoped>
 .china-river-page {
+  /* 深色变量仅供画布 / 加载态子组件继承，外壳自身用浅色纸质风格 */
   --river-page-background: #071e2e;
   --river-page-surface: #0b2a3f;
   --river-page-ink: #fff8df;
@@ -39,44 +40,33 @@ const textbookEvents = getAllTextbookEvents()
 
   display: grid;
   gap: clamp(16px, 2vw, 24px);
-  padding: clamp(18px, 3vw, 34px);
-  color: var(--river-page-ink);
+  padding: clamp(22px, 4vw, 36px);
+  overflow: hidden;
+  color: var(--ink);
   background:
-    radial-gradient(
-      circle at 16% 0%,
-      color-mix(in srgb, var(--river-page-gold) 12%, transparent),
-      transparent 28rem
-    ),
-    linear-gradient(
-      145deg,
-      var(--river-page-surface),
-      var(--river-page-background) 46%
-    );
-  border: 1px solid color-mix(in srgb, var(--river-page-gold) 26%, transparent);
-  border-radius: 24px;
-  box-shadow: 0 30px 80px color-mix(in srgb, var(--ink) 28%, transparent);
+    linear-gradient(90deg, rgb(54 91 76 / 7%) 1px, transparent 1px) 0 0 / 38px
+      100%,
+    color-mix(in srgb, var(--paper) 88%, white);
+  border: 1px solid rgb(74 50 35 / 16%);
+  border-radius: 30px;
+  box-shadow: 0 18px 45px rgb(36 27 20 / 10%);
 }
 
 .river-heading {
   display: flex;
-  align-items: flex-end;
+  align-items: end;
   justify-content: space-between;
-  gap: 32px;
-  padding: 2px 4px 0;
+  gap: 24px;
 }
 
 .back-link {
   display: inline-block;
   margin-bottom: 14px;
-  color: var(--river-page-gold);
+  color: var(--cinnabar);
   font-family: var(--font-utility);
   font-size: 14px;
   font-weight: 800;
-  text-decoration-color: color-mix(
-    in srgb,
-    var(--river-page-gold) 42%,
-    transparent
-  );
+  text-decoration-color: color-mix(in srgb, var(--cinnabar) 42%, transparent);
 }
 
 .eyebrow,
@@ -86,34 +76,33 @@ const textbookEvents = getAllTextbookEvents()
 }
 
 .eyebrow {
-  color: var(--river-page-gold);
+  color: var(--cinnabar);
   font-family: var(--font-utility);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 h1 {
-  margin: 6px 0 9px;
+  margin: 0 0 9px;
   font-family: var(--font-display);
-  font-size: clamp(34px, 4vw, 52px);
-  line-height: 1.04;
-  letter-spacing: -0.045em;
-  text-shadow: 0 4px 18px color-mix(in srgb, var(--ink) 30%, transparent);
+  font-size: clamp(28px, 5vw, 42px);
+  line-height: 1.1;
 }
 
 .description {
-  max-width: 46rem;
-  color: var(--river-page-muted);
+  max-width: 480px;
+  color: var(--muted-ink);
   line-height: 1.7;
 }
 
 .desktop-guide {
   flex: 0 0 auto;
   padding: 10px 14px;
-  color: var(--river-page-paper);
-  background: color-mix(in srgb, var(--river-page-surface) 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--river-page-gold) 58%, transparent);
+  color: var(--ink);
+  background: rgb(255 248 229 / 46%);
+  border: 1px solid rgb(43 54 42 / 18%);
   border-radius: 999px;
   font-family: var(--font-utility);
   font-size: 13px;
@@ -123,13 +112,10 @@ h1 {
 @media (max-width: 760px) {
   .china-river-page {
     --river-canvas-height: max(560px, calc(100vh - 300px));
-
-    padding: 16px;
-    border-radius: 18px;
   }
 
   .river-heading {
-    align-items: flex-start;
+    align-items: start;
     flex-direction: column;
     gap: 16px;
   }

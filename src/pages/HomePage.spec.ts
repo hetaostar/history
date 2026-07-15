@@ -140,7 +140,7 @@ describe('HomePage', () => {
     expect(wrapper.findAll('.feature-card')).toHaveLength(4)
   })
 
-  it('在所有功能卡之后展示可进入沉浸模式的中华历史长河', async () => {
+  it('在初中历史教材之上展示可进入沉浸模式的中华历史长河', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const router = createTestRouter()
@@ -150,11 +150,11 @@ describe('HomePage', () => {
     const wrapper = mount(HomePage, {
       global: { plugins: [pinia, router] },
     })
-    const featureRail = wrapper.get('.feature-rail')
     const riverSection = wrapper.get('.home-river-section')
+    const shelf = wrapper.get('[aria-labelledby="textbook-shelf-title"]')
 
     expect(
-      featureRail.element.compareDocumentPosition(riverSection.element) &
+      riverSection.element.compareDocumentPosition(shelf.element) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
     expect(riverSection.get('h2').text()).toBe('中华历史长河')
