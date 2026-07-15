@@ -118,7 +118,7 @@ describe('TextbookLessonPage', () => {
 
     await router.push('/textbooks/grade-7-down/lessons/g7d-lesson-01')
     await wrapper.vm.$nextTick()
-    expect(wrapper.get('h1').text()).toBe('隋朝统一与灭亡')
+    expect(wrapper.get('h1').text()).toBe('隋朝的统一与灭亡')
     expect(wrapper.get('[data-test="lesson-people"]').text()).toContain('隋文帝')
     expect(wrapper.get('[data-test="lesson-events"]').text()).toContain(
       '隋灭陈/统一全国',

@@ -111,10 +111,10 @@ describe('TextbookPage', () => {
       textbookId: 'grade-7-down',
       personId: 'g7d-li-shimin',
       personName: '唐太宗',
-      personLesson: '唐朝建立与“贞观之治”',
+      personLesson: '从“贞观之治”到“开元盛世”',
       eventId: 'china-event-0067',
       eventTitle: '隋灭陈/统一全国',
-      eventLesson: '隋朝统一与灭亡',
+      eventLesson: '隋朝的统一与灭亡',
     },
   ])(
     '$textbookId 点击人物和事件卡片后弹层展示关联课程',

@@ -49,28 +49,28 @@ const GRADE_7_UP_TITLES = [
 ] as const
 
 const GRADE_7_DOWN_TITLES = [
-  '隋朝统一与灭亡',
-  '唐朝建立与“贞观之治”',
-  '“开元盛世”',
+  '隋朝的统一与灭亡',
+  '从“贞观之治”到“开元盛世”',
+  '盛唐气象',
+  '唐朝的中外文化交流',
   '安史之乱与唐朝衰亡',
-  '隋唐时期的民族交往与交融',
-  '隋唐时期的中外文化交流',
-  '隋唐时期的科技与文化',
   '北宋的政治',
-  '辽、西夏与北宋并立',
-  '金与南宋对峙',
-  '元朝的建立与统一',
-  '辽宋夏金元时期经济的繁荣',
-  '辽宋夏金元时期的对外交流',
-  '辽宋夏金元时期的科技与文化',
+  '辽、西夏与北宋的并立',
+  '金与南宋的对峙',
+  '宋代经济的发展',
+  '蒙古族的兴起与元朝的建立',
+  '元朝的统治',
+  '宋元时期的都市和文化',
+  '宋元时期的科技与中外交通',
   '明朝的统治',
   '明朝的对外关系',
-  '明朝的灭亡和清朝的建立',
-  '清朝的边疆治理',
+  '明朝的科技、建筑与文学',
+  '明朝的灭亡',
+  '统一多民族国家的巩固和发展',
+  '清朝前期社会经济的发展',
   '清朝君主专制的强化',
-  '明清时期社会经济的发展',
-  '明清时期的科技与文化',
-  '活动课 我国传统节日的起源与传承',
+  '清朝前期的文学艺术',
+  '活动课：中国传统节日的起源',
 ] as const
 
 function expectUniqueIds(items: readonly { readonly id: string }[]) {
@@ -122,7 +122,7 @@ describe('教材内置数据', () => {
     expect(units.map((unit) => unit.title)).toEqual([
       '隋唐时期：繁荣与开放的时代',
       '辽宋夏金元时期：民族关系发展和社会变化',
-      '明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展',
+      '明清时期：统一多民族国家的巩固与发展',
     ])
     expect(
       getTextbookLessons('grade-7-down').map((lesson) => lesson.title),
@@ -330,9 +330,9 @@ describe('课程事件映射', () => {
     ['g7u-lesson-16', 'china-event-0052', ['g7u-cao-pi']],
     ['g7u-lesson-16', 'china-event-0054', ['g7u-zuge-liang']],
     ['g7u-lesson-18', 'china-event-0062', ['g7u-liu-yu']],
-    ['g7d-lesson-10', 'china-event-0156', ['g7d-song-gaozong']],
-    ['g7d-lesson-14', 'china-event-0137', ['g7d-su-shi']],
-    ['g7d-lesson-21', 'china-event-0185', ['g7d-tang-xianzu']],
+    ['g7d-lesson-08', 'china-event-0156', ['g7d-song-gaozong']],
+    ['g7d-lesson-12', 'china-event-0137', ['g7d-su-shi']],
+    ['g7d-lesson-16', 'china-event-0185', ['g7d-tang-xianzu']],
   ] as const)(
     '%s 的已知主体事件 %s 同步映射教材人物',
     (lessonId, eventId, personIds) => {
@@ -375,20 +375,20 @@ describe('课程事件映射', () => {
     expect(getLesson('g7u-lesson-20').eventIds).toContain('china-event-0059')
   })
 
-  it('赵州桥仅归入七下科技文化课', () => {
-    expect(getLesson('g7d-lesson-01').eventIds).not.toContain(
+  it('赵州桥仅归入七下隋朝课', () => {
+    expect(getLesson('g7d-lesson-01').eventIds).toContain('china-event-0070')
+    expect(getLesson('g7d-lesson-07').eventIds).not.toContain(
       'china-event-0070',
     )
-    expect(getLesson('g7d-lesson-07').eventIds).toContain('china-event-0070')
   })
 
-  it('七下对外交流课不混入元军东征日本', () => {
+  it('七下科技与中外交通课不混入元军东征日本', () => {
     expect(getLesson('g7d-lesson-13').eventIds).not.toContain(
       'china-event-0143',
     )
   })
 
-  it('清朝边疆治理课关联实际治理史事而非帝王登基', () => {
+  it('统一多民族国家的巩固和发展课关联实际治理史事而非帝王登基', () => {
     const eventIds = getLesson('g7d-lesson-18').eventIds
 
     expect(eventIds).toEqual(
@@ -405,7 +405,7 @@ describe('课程事件映射', () => {
   })
 
   it('清朝君主专制课关联军机处和闭关政策', () => {
-    const eventIds = getLesson('g7d-lesson-19').eventIds
+    const eventIds = getLesson('g7d-lesson-20').eventIds
 
     expect(eventIds).toEqual(
       expect.arrayContaining(['china-event-0271', 'china-event-0272']),
@@ -420,8 +420,8 @@ describe('课程事件映射', () => {
     )
   })
 
-  it('红楼梦仅归入七下科技文化课', () => {
-    expect(getLesson('g7d-lesson-20').eventIds).not.toContain(
+  it('红楼梦仅归入七下文学艺术课', () => {
+    expect(getLesson('g7d-lesson-19').eventIds).not.toContain(
       'china-event-0195',
     )
     expect(getLesson('g7d-lesson-21').eventIds).toContain('china-event-0195')

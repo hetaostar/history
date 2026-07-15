@@ -1044,6 +1044,8 @@ const RAW_KEY_EVENTS = [
     title: '隋灭陈/统一全国',
     type: 'war',
     importance: 2,
+    description:
+      '589年，隋文帝灭掉陈朝，统一全国，结束了长期分裂的局面。',
   },
   {
     id: 'china-event-0068',
@@ -1051,6 +1053,8 @@ const RAW_KEY_EVENTS = [
     title: '隋炀帝登基',
     type: 'politics',
     importance: 6,
+    description:
+      '隋朝第二个皇帝隋炀帝即位后，好大喜功，营建重大工程、开凿大运河，后因暴政激化矛盾。',
   },
   {
     id: 'china-event-0069',
@@ -1058,6 +1062,8 @@ const RAW_KEY_EVENTS = [
     title: '开凿大运河',
     type: 'science',
     importance: 6,
+    description:
+      '从605年起，隋炀帝陆续开凿以洛阳为中心、北抵涿郡、南至余杭的大运河，全长两千七百多千米，加强了南北交流。',
   },
   {
     id: 'china-event-0070',
@@ -1065,6 +1071,8 @@ const RAW_KEY_EVENTS = [
     title: '赵州桥建成',
     type: 'science',
     importance: 10,
+    description:
+      '隋朝赵州桥是世界上现存最古老的石拱桥之一，反映了当时高超的桥梁建筑水平。',
   },
   {
     id: 'china-event-0071',
@@ -1072,6 +1080,8 @@ const RAW_KEY_EVENTS = [
     title: '江都兵变',
     type: 'war',
     importance: 6,
+    description:
+      '隋末暴政激起反抗，隋炀帝在江都被杀，隋朝迅速灭亡。',
   },
   {
     id: 'china-event-0072',
@@ -1079,6 +1089,8 @@ const RAW_KEY_EVENTS = [
     title: '唐朝建立',
     type: 'politics',
     importance: 1,
+    description:
+      '618年，李渊称帝，建立唐朝，定都长安，随后消灭各地起义军和割据势力，平定了全国。',
   },
   {
     id: 'china-event-0073',
@@ -1086,6 +1098,8 @@ const RAW_KEY_EVENTS = [
     title: '玄武门之变',
     type: 'politics',
     importance: 6,
+    description:
+      '626年，李世民即位，次年改年号为“贞观”，他就是历史上著名的唐太宗。',
   },
   {
     id: 'china-event-0074',
@@ -1093,6 +1107,8 @@ const RAW_KEY_EVENTS = [
     title: '玄奘西行',
     type: 'culture',
     importance: 6,
+    description:
+      '贞观初年，高僧玄奘西行前往天竺取经，历经磨难；回国后主持译经，口述整理成《大唐西域记》。',
   },
   {
     id: 'china-event-0075',
@@ -1100,6 +1116,8 @@ const RAW_KEY_EVENTS = [
     title: '文成公主入藏',
     type: 'politics',
     importance: 8,
+    description:
+      '641年，文成公主入藏和亲，促进了唐朝与吐蕃的友好往来和经济文化交流。',
   },
   {
     id: 'china-event-0076',
@@ -1107,6 +1125,8 @@ const RAW_KEY_EVENTS = [
     title: '武则天称帝',
     type: 'politics',
     importance: 2,
+    description:
+      '武则天称帝，成为中国历史上唯一的女皇帝；她大力发展科举，继续推行减轻人民负担的政策。',
   },
   {
     id: 'china-event-0077',
@@ -1114,6 +1134,8 @@ const RAW_KEY_EVENTS = [
     title: '李白出生',
     type: 'culture',
     importance: 10,
+    description:
+      '盛唐诗人李白出生。其诗抒发昂扬进取精神，充满浪漫情怀，享有“诗仙”美誉。',
   },
   {
     id: 'china-event-0078',
@@ -1121,6 +1143,8 @@ const RAW_KEY_EVENTS = [
     title: '杜甫出生',
     type: 'culture',
     importance: 10,
+    description:
+      '唐代诗人杜甫出生。其诗反映历史真情实况，有“诗史”之称，被誉为“诗圣”。',
   },
   {
     id: 'china-event-0079',
@@ -1128,6 +1152,8 @@ const RAW_KEY_EVENTS = [
     title: '开元盛世',
     type: 'politics',
     importance: 4,
+    description:
+      '唐玄宗在位前期年号开元，安定政局、发展生产，唐朝进入鼎盛，史称“开元盛世”。',
   },
   {
     id: 'china-event-0080',
@@ -1135,6 +1161,8 @@ const RAW_KEY_EVENTS = [
     title: '安史之乱',
     type: 'war',
     importance: 2,
+    description:
+      '755年，安禄山与史思明发动叛乱，史称安史之乱，持续八年，对社会经济尤其是北方造成极大破坏。',
   },
   {
     id: 'china-event-0081',
@@ -1149,6 +1177,8 @@ const RAW_KEY_EVENTS = [
     title: '《金刚经》雕版印刷',
     type: 'culture',
     importance: 8,
+    description:
+      '隋唐时期已发明雕版印刷术；现存早期雕版印刷品如《金刚经》等，促进了文化传播。',
   },
   {
     id: 'china-event-0083',
@@ -1156,6 +1186,8 @@ const RAW_KEY_EVENTS = [
     title: '黄巢起义',
     type: 'war',
     importance: 8,
+    description:
+      '唐朝后期爆发黄巢等农民大起义，沉重打击了唐朝统治。',
   },
   {
     id: 'china-event-0084',
@@ -1163,6 +1195,8 @@ const RAW_KEY_EVENTS = [
     title: '唐亡',
     type: 'politics',
     importance: 6,
+    description:
+      '907年，唐朝灭亡，中国进入五代十国的分裂时期。',
   },
   {
     id: 'china-event-0085',
@@ -1325,6 +1359,8 @@ const RAW_KEY_EVENTS = [
     title: '唐高祖登基',
     type: 'politics',
     importance: 6,
+    description:
+      '618年李渊称帝，即唐高祖，建立唐朝。',
   },
   {
     id: 'china-event-0108',
@@ -1332,6 +1368,8 @@ const RAW_KEY_EVENTS = [
     title: '唐太宗登基',
     type: 'politics',
     importance: 6,
+    description:
+      '626年李世民即位为唐太宗，开创贞观之治。',
   },
   {
     id: 'china-event-0109',
@@ -1374,6 +1412,8 @@ const RAW_KEY_EVENTS = [
     title: '唐玄宗登基',
     type: 'politics',
     importance: 6,
+    description:
+      '唐玄宗即位，其统治前期出现开元盛世。',
   },
   {
     id: 'china-event-0115',
@@ -1481,6 +1521,8 @@ const RAW_KEY_EVENTS = [
     title: '宋朝建立',
     type: 'politics',
     importance: 1,
+    description:
+      '960年，赵匡胤建立宋朝，以开封为东京，史称北宋。',
   },
   {
     id: 'china-event-0130',
@@ -1488,6 +1530,8 @@ const RAW_KEY_EVENTS = [
     title: '陈桥兵变（赵匡胤即位）',
     type: 'politics',
     importance: 6,
+    description:
+      '赵匡胤在陈桥驿被部下黄袍加身，取代后周，建立北宋。',
   },
   {
     id: 'china-event-0131',
@@ -1495,6 +1539,8 @@ const RAW_KEY_EVENTS = [
     title: '澶渊之盟',
     type: 'politics',
     importance: 8,
+    description:
+      '1004年，宋辽议和，订立澶渊之盟，此后双方维持较长时间的和平交往。',
   },
   {
     id: 'china-event-0132',
@@ -1502,6 +1548,8 @@ const RAW_KEY_EVENTS = [
     title: '交子(纸币)出现',
     type: 'science',
     importance: 8,
+    description:
+      '宋代四川地区出现交子，是世界上最早的纸币，便利了商业发展。',
   },
   {
     id: 'china-event-0133',
@@ -1509,6 +1557,8 @@ const RAW_KEY_EVENTS = [
     title: '毕昇发明活字印刷',
     type: 'science',
     importance: 2,
+    description:
+      '北宋匠人毕昇发明活字印刷术，提高了印书效率，对人类文明发展影响深远。',
   },
   {
     id: 'china-event-0134',
@@ -1516,6 +1566,8 @@ const RAW_KEY_EVENTS = [
     title: '《武经总要》火药配方',
     type: 'science',
     importance: 10,
+    description:
+      '宋元时期火药大量运用到军事领域，《武经总要》等书记载了有关火药配方。',
   },
   {
     id: 'china-event-0135',
@@ -1523,6 +1575,8 @@ const RAW_KEY_EVENTS = [
     title: '王安石变法',
     type: 'politics',
     importance: 8,
+    description:
+      '宋神宗任用王安石主持变法，希望改变积贫积弱的局面。',
   },
   {
     id: 'china-event-0136',
@@ -1530,6 +1584,8 @@ const RAW_KEY_EVENTS = [
     title: '《资治通鉴》成书',
     type: 'culture',
     importance: 10,
+    description:
+      '司马光主持编写的编年体通史《资治通鉴》成书，是中国史学的不朽巨著。',
   },
   {
     id: 'china-event-0137',
@@ -1537,6 +1593,8 @@ const RAW_KEY_EVENTS = [
     title: '苏轼逝世',
     type: 'culture',
     importance: 10,
+    description:
+      '北宋文学家苏轼对词的发展有突出贡献，扩大了词的表现范围。',
   },
   {
     id: 'china-event-0138',
@@ -1544,6 +1602,8 @@ const RAW_KEY_EVENTS = [
     title: '金国建立',
     type: 'politics',
     importance: 10,
+    description:
+      '完颜阿骨打建立金朝，女真势力迅速崛起。',
   },
   {
     id: 'china-event-0139',
@@ -1551,6 +1611,8 @@ const RAW_KEY_EVENTS = [
     title: '靖康之变',
     type: 'war',
     importance: 2,
+    description:
+      '1127年，金军俘虏宋徽宗、宋钦宗，北宋灭亡，史称靖康之变。',
   },
   {
     id: 'china-event-0140',
@@ -1558,6 +1620,8 @@ const RAW_KEY_EVENTS = [
     title: '岳飞北伐',
     type: 'war',
     importance: 6,
+    description:
+      '岳飞等抗金将领北伐，岳家军在郾城大败金军主力，收复许多失地。',
   },
   {
     id: 'china-event-0141',
@@ -1565,6 +1629,8 @@ const RAW_KEY_EVENTS = [
     title: '成吉思汗统一蒙古',
     type: 'politics',
     importance: 2,
+    description:
+      '1206年，铁木真统一蒙古各部，建立蒙古政权，被尊称为成吉思汗。',
   },
   {
     id: 'china-event-0142',
@@ -1572,6 +1638,8 @@ const RAW_KEY_EVENTS = [
     title: '忽必烈改国号为元',
     type: 'politics',
     importance: 6,
+    description:
+      '1271年，忽必烈改国号为元，次年定都大都。',
   },
   {
     id: 'china-event-0143',
@@ -1586,6 +1654,8 @@ const RAW_KEY_EVENTS = [
     title: '崖山海战',
     type: 'war',
     importance: 6,
+    description:
+      '元朝军队攻灭南宋残部，完成全国统一。',
   },
   {
     id: 'china-event-0145',
@@ -1593,6 +1663,8 @@ const RAW_KEY_EVENTS = [
     title: '马可波罗离开中国',
     type: 'culture',
     importance: 8,
+    description:
+      '意大利旅行家马可·波罗在元朝生活多年，其行纪记述东方见闻。',
   },
   {
     id: 'china-event-0146',
@@ -1600,6 +1672,8 @@ const RAW_KEY_EVENTS = [
     title: '元曲兴盛',
     type: 'culture',
     importance: 10,
+    description:
+      '元代杂剧兴盛，关汉卿等创作《窦娥冤》等优秀作品。',
   },
   // 宋历代帝王登基（北宋/南宋）
   {
@@ -1608,6 +1682,8 @@ const RAW_KEY_EVENTS = [
     title: '宋太祖登基',
     type: 'politics',
     importance: 6,
+    description:
+      '赵匡胤建立北宋后称帝，采取加强中央集权的措施。',
   },
   {
     id: 'china-event-0148',
@@ -1671,6 +1747,8 @@ const RAW_KEY_EVENTS = [
     title: '宋高宗登基',
     type: 'politics',
     importance: 6,
+    description:
+      '靖康之变后，宋高宗在南方重建宋朝，史称南宋。',
   },
   {
     id: 'china-event-0157',
@@ -1735,6 +1813,8 @@ const RAW_KEY_EVENTS = [
     title: '元世祖忽必烈即位',
     type: 'politics',
     importance: 6,
+    description:
+      '忽必烈继承汗位，推行“行汉法”，为建立元朝奠定基础。',
   },
   {
     id: 'china-event-0166',
@@ -1807,6 +1887,8 @@ const RAW_KEY_EVENTS = [
     title: '明朝建立',
     type: 'war',
     importance: 1,
+    description:
+      '1368年，朱元璋灭亡元朝，建立明朝。',
   },
   {
     id: 'china-event-0176',
@@ -1821,6 +1903,8 @@ const RAW_KEY_EVENTS = [
     title: '郑和下西洋',
     type: 'culture',
     importance: 4,
+    description:
+      '1405—1433年，郑和率船队七下西洋，到达亚非三十多个国家和地区。',
   },
   {
     id: 'china-event-0178',
@@ -1828,6 +1912,8 @@ const RAW_KEY_EVENTS = [
     title: '紫禁城建成',
     type: 'culture',
     importance: 6,
+    description:
+      '明北京城中的宫城即紫禁城（今故宫），是明清皇宫。',
   },
   {
     id: 'china-event-0179',
@@ -1849,6 +1935,8 @@ const RAW_KEY_EVENTS = [
     title: '戚继光抗倭',
     type: 'war',
     importance: 8,
+    description:
+      '戚继光组建戚家军，在东南沿海平定倭患。',
   },
   {
     id: 'china-event-0182',
@@ -1856,6 +1944,8 @@ const RAW_KEY_EVENTS = [
     title: '李时珍完成《本草纲目》',
     type: 'science',
     importance: 6,
+    description:
+      '李时珍写成药物学巨著《本草纲目》。',
   },
   {
     id: 'china-event-0183',
@@ -1877,6 +1967,8 @@ const RAW_KEY_EVENTS = [
     title: '《牡丹亭》问世',
     type: 'culture',
     importance: 10,
+    description:
+      '汤显祖的戏曲代表作《牡丹亭》问世。',
   },
   {
     id: 'china-event-0186',
@@ -1884,6 +1976,8 @@ const RAW_KEY_EVENTS = [
     title: '努尔哈赤建后金',
     type: 'politics',
     importance: 8,
+    description:
+      '1616年，努尔哈赤建立后金。',
   },
   {
     id: 'china-event-0187',
@@ -1891,6 +1985,8 @@ const RAW_KEY_EVENTS = [
     title: '《天工开物》刊行',
     type: 'science',
     importance: 10,
+    description:
+      '宋应星所著科技巨著《天工开物》刊行。',
   },
   {
     id: 'china-event-0188',
@@ -1898,6 +1994,8 @@ const RAW_KEY_EVENTS = [
     title: '清军入关',
     type: 'war',
     importance: 2,
+    description:
+      '1644年，李自成攻占北京，明朝灭亡；随后清军入关。',
   },
   {
     id: 'china-event-0189',
@@ -1905,6 +2003,8 @@ const RAW_KEY_EVENTS = [
     title: '郑成功收复台湾',
     type: 'war',
     importance: 6,
+    description:
+      '1661—1662年，郑成功驱逐荷兰殖民者，收复台湾。',
   },
   {
     id: 'china-event-0190',
@@ -1912,6 +2012,8 @@ const RAW_KEY_EVENTS = [
     title: '清朝统一台湾',
     type: 'politics',
     importance: 8,
+    description:
+      '1683年清军进攻台湾，台湾归入清朝版图；次年设置台湾府。',
   },
   {
     id: 'china-event-0191',
@@ -1926,6 +2028,8 @@ const RAW_KEY_EVENTS = [
     title: '京剧雏形诞生',
     type: 'culture',
     importance: 10,
+    description:
+      '清朝中期以后昆曲渐趋衰落；徽调吸收昆曲、秦腔等，逐渐形成京剧，成为深受大众喜爱的剧种。',
   },
   {
     id: 'china-event-0193',
@@ -1940,6 +2044,8 @@ const RAW_KEY_EVENTS = [
     title: '徽班进京',
     type: 'culture',
     importance: 8,
+    description:
+      '乾隆寿辰时，四大徽班先后到北京献艺；徽调不断吸收昆曲、秦腔等，逐渐形成京剧。',
   },
   {
     id: 'china-event-0195',
@@ -1947,6 +2053,8 @@ const RAW_KEY_EVENTS = [
     title: '《红楼梦》刊行',
     type: 'culture',
     importance: 10,
+    description:
+      '曹雪芹《红楼梦》在乾隆晚期排印面世，成为清代小说最高成就。',
   },
   {
     id: 'china-event-0196',
@@ -2039,6 +2147,8 @@ const RAW_KEY_EVENTS = [
     title: '明太祖洪武登基',
     type: 'politics',
     importance: 6,
+    description:
+      '朱元璋称帝，年号洪武，即明太祖。',
   },
   {
     id: 'china-event-0209',
@@ -2053,6 +2163,8 @@ const RAW_KEY_EVENTS = [
     title: '明成祖永乐登基',
     type: 'politics',
     importance: 6,
+    description:
+      '朱棣称帝，年号永乐，即明成祖。',
   },
   {
     id: 'china-event-0211',
@@ -2238,6 +2350,8 @@ const RAW_KEY_EVENTS = [
     title: '《尼布楚条约》签订',
     type: 'politics',
     importance: 8,
+    description:
+      '清朝与沙俄签订《尼布楚条约》，划定中俄东段边界。',
   },
   {
     id: 'china-event-0268',
@@ -2245,6 +2359,8 @@ const RAW_KEY_EVENTS = [
     title: '设置驻藏大臣',
     type: 'politics',
     importance: 6,
+    description:
+      '清朝设置驻藏大臣，加强对西藏的管辖。',
   },
   {
     id: 'china-event-0269',
@@ -2252,6 +2368,8 @@ const RAW_KEY_EVENTS = [
     title: '平定准噶尔叛乱',
     type: 'war',
     importance: 6,
+    description:
+      '乾隆时期平定准噶尔叛乱，巩固西北边疆。',
   },
   {
     id: 'china-event-0270',
@@ -2259,6 +2377,8 @@ const RAW_KEY_EVENTS = [
     title: '设置伊犁将军',
     type: 'politics',
     importance: 8,
+    description:
+      '清朝设置伊犁将军，管辖新疆地区。',
   },
   {
     id: 'china-event-0271',
@@ -2266,6 +2386,8 @@ const RAW_KEY_EVENTS = [
     title: '设立军机处',
     type: 'politics',
     importance: 6,
+    description:
+      '雍正时设立军机处，便于皇帝独断朝政，君主专制进一步强化。',
   },
   {
     id: 'china-event-0272',
@@ -2273,6 +2395,8 @@ const RAW_KEY_EVENTS = [
     title: '限定广州一口通商',
     type: 'politics',
     importance: 8,
+    description:
+      '清朝限定广州一口通商，严格限制对外贸易。',
   },
 ] as const satisfies readonly IHistoricalEvent[]
 
