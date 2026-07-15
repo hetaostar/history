@@ -46,7 +46,10 @@ const timelineConfig = computed(() => {
   if (!range) return undefined
 
   const span = Math.max(1, range.endYear - range.startYear)
-  const padding = Math.max(MINIMUM_YEAR_PADDING, Math.ceil(span * YEAR_PADDING_RATIO))
+  const padding = Math.max(
+    MINIMUM_YEAR_PADDING,
+    Math.ceil(span * YEAR_PADDING_RATIO),
+  )
 
   return {
     startYear: range.startYear - padding,
@@ -61,8 +64,7 @@ const dynasties = computed(() => {
 
   return DYNASTIES.filter(
     (dynasty) =>
-      dynasty.endYear >= range.startYear &&
-      dynasty.startYear <= range.endYear,
+      dynasty.endYear >= range.startYear && dynasty.startYear <= range.endYear,
   )
 })
 
@@ -256,14 +258,21 @@ onUnmounted(() => {
 }
 
 @media (max-width: 620px) {
+  .textbook-river-timeline {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
   .timeline-heading {
     align-items: start;
     flex-direction: column;
+    gap: 14px;
   }
 
   .timeline-canvas {
-    height: 520px;
-    min-height: 520px;
+    height: clamp(400px, 68vh, 500px);
+    min-height: 400px;
+    border-radius: 14px;
   }
 }
 

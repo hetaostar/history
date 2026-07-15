@@ -2,6 +2,10 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 :root {
   --ink: #251b16;
   --muted-ink: #6d5a4a;
@@ -11,19 +15,24 @@
   --bronze: #365b4c;
   --aged-gold: #c39a45;
   --smoke: #efe1c4;
-  --font-display: "STSong", "Songti SC", "Noto Serif SC", Georgia, serif;
-  --font-body: "LXGW WenKai", "Kaiti SC", "PingFang SC", system-ui, sans-serif;
-  --font-utility: "Avenir Next", "Gill Sans", "PingFang SC", system-ui, sans-serif;
+  --font-display: 'STSong', 'Songti SC', 'Noto Serif SC', Georgia, serif;
+  --font-body: 'LXGW WenKai', 'Kaiti SC', 'PingFang SC', system-ui, sans-serif;
+  --font-utility:
+    'Avenir Next', 'Gill Sans', 'PingFang SC', system-ui, sans-serif;
 }
 
 body {
   margin: 0;
+  overflow-x: hidden;
   color: var(--ink);
   background:
-    radial-gradient(circle at top left, rgb(184 62 44 / 12%), transparent 32rem),
+    radial-gradient(
+      circle at top left,
+      rgb(184 62 44 / 12%),
+      transparent 32rem
+    ),
     linear-gradient(120deg, #e8d3a8 0%, #f6ecd0 42%, #d8b879 100%);
-  font-family:
-    var(--font-body);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -58,7 +67,8 @@ select:focus-visible {
   min-height: 100vh;
   background:
     linear-gradient(rgb(37 27 22 / 4%) 1px, transparent 1px) 0 0 / 100% 38px,
-    linear-gradient(90deg, rgb(37 27 22 / 4%) 1px, transparent 1px) 0 0 / 38px 100%;
+    linear-gradient(90deg, rgb(37 27 22 / 4%) 1px, transparent 1px) 0 0 / 38px
+      100%;
 }
 
 .app-header {
@@ -91,7 +101,10 @@ select:focus-visible {
 }
 
 .nav-links a {
-  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
   color: var(--muted-ink);
   font-family: var(--font-utility);
   font-size: 14px;
@@ -120,11 +133,38 @@ select:focus-visible {
   .app-header {
     align-items: flex-start;
     flex-direction: column;
-    padding: 16px 20px;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .brand {
+    font-size: 20px;
+  }
+
+  .nav-links {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .nav-links a {
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 13px;
   }
 
   .app-main {
-    width: min(100vw - 28px, 1220px);
-    padding-top: 20px;
+    width: min(100vw - 20px, 1220px);
+    padding-top: 16px;
+    padding-bottom: 36px;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-header {
+    padding-inline: 12px;
+  }
+
+  .app-main {
+    width: min(100vw - 16px, 1220px);
   }
 }

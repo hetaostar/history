@@ -215,6 +215,21 @@ const revealed = ref(false)
   gap: 12px;
 }
 
+@media (max-width: 520px) {
+  .flip-stage,
+  .flip-card {
+    min-height: 230px;
+  }
+
+  .flip-face {
+    padding: 20px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .flip-card {
     transition: none;

@@ -111,7 +111,11 @@ h1 {
 
 @media (max-width: 760px) {
   .china-river-page {
-    --river-canvas-height: max(560px, calc(100vh - 300px));
+    --river-canvas-height: clamp(420px, 68vh, 540px);
+    --river-canvas-min-height: 420px;
+
+    padding: 20px;
+    border-radius: 24px;
   }
 
   .river-heading {
@@ -123,6 +127,12 @@ h1 {
   .desktop-guide {
     flex: 1;
     white-space: normal;
+  }
+}
+
+@media (max-width: 420px) {
+  .china-river-page {
+    padding: 16px;
   }
 }
 </style>

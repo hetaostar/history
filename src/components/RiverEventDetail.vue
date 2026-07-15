@@ -461,7 +461,7 @@ h2 {
 
   .event-detail-sheet {
     max-height: calc(100vh - 24px);
-    padding: 32px 24px 26px;
+    padding: 28px 20px 22px;
     overflow-y: auto;
   }
 
@@ -475,6 +475,7 @@ h2 {
 
   .study-button {
     flex: 1;
+    min-height: 44px;
   }
 }
 

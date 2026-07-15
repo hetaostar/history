@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type {
-  ITextbookLesson,
-  ITextbookUnit,
-} from '@/domain/textbookTypes'
+import type { ITextbookLesson, ITextbookUnit } from '@/domain/textbookTypes'
 
 const props = defineProps<{
   textbookId: string
@@ -58,10 +55,7 @@ function updateOpenState(unitId: string, event: Event) {
           </span>
         </summary>
         <ol class="unit-lessons">
-          <li
-            v-for="lesson in lessonsInUnit(unit.id)"
-            :key="lesson.id"
-          >
+          <li v-for="lesson in lessonsInUnit(unit.id)" :key="lesson.id">
             <RouterLink
               class="textbook-lesson-link"
               :to="`/textbooks/${textbookId}/lessons/${lesson.id}`"
@@ -193,6 +187,8 @@ details[open] summary::after {
 @media (max-width: 620px) {
   summary {
     grid-template-columns: 1fr auto;
+    gap: 10px 12px;
+    padding: 16px;
   }
 
   .unit-number,
@@ -220,6 +216,7 @@ details[open] summary::after {
 
   .textbook-lesson-link {
     grid-template-columns: 1fr;
+    padding: 14px 16px;
   }
 
   .textbook-lesson-link > span {

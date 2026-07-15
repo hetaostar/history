@@ -67,8 +67,7 @@ const featureEntries = computed(() => [
 ])
 
 const totalItems = computed(
-  () =>
-    textbookPeopleCount + textbookEventCount + store.cards.length,
+  () => textbookPeopleCount + textbookEventCount + store.cards.length,
 )
 
 onMounted(() => {
@@ -527,21 +526,64 @@ onUnmounted(() => {
 
 @media (max-width: 620px) {
   .hero-panel {
+    min-height: auto;
     padding: 26px;
     border-radius: 26px;
+  }
+
+  .hero-panel::before {
+    inset: 14px;
+    mask-image: linear-gradient(180deg, #000, transparent 88%);
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(36px, 13vw, 54px);
+    line-height: 1;
+  }
+
+  .hero-copy p:not(.eyebrow) {
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .primary-link,
+  .secondary-link {
+    width: 100%;
+  }
+
+  .archive-slip {
+    align-self: stretch;
+    padding: 20px;
+  }
+
+  .archive-slip strong {
+    font-size: 56px;
   }
 
   .feature-rail {
     grid-template-columns: 1fr;
   }
 
+  .feature-card {
+    min-height: auto;
+    padding: 20px;
+  }
+
   .home-river-section {
-    --river-canvas-height: 520px;
-    --river-canvas-min-height: 520px;
+    --river-canvas-height: clamp(400px, 70vh, 500px);
+    --river-canvas-min-height: 400px;
+
+    padding: 20px;
+    border-radius: 24px;
   }
 
   .river-guide {
     line-height: 1.6;
+  }
+
+  .river-immersive-link {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

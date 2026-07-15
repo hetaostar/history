@@ -78,7 +78,9 @@ function getPeriodIdFromHash(hash: string): string | null {
 }
 
 function prefersReducedMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  return (
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  )
 }
 
 async function scrollToPeriod(
@@ -217,9 +219,7 @@ onBeforeUnmount(() => {
             v-for="group in periodGroups"
             :id="`period-${group.period.id}`"
             :key="group.period.id"
-            :ref="
-              (element) => setPeriodSectionRef(group.period.id, element)
-            "
+            :ref="(element) => setPeriodSectionRef(group.period.id, element)"
             class="period-section"
             :data-test="`period-section-${group.period.id}`"
             :aria-labelledby="`period-title-${group.period.id}`"
@@ -339,8 +339,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 18px;
   padding-bottom: 18px;
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--muted-ink) 18%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--muted-ink) 18%, transparent);
 }
 
 .catalog-heading h2 {
@@ -492,8 +491,17 @@ onBeforeUnmount(() => {
     gap: 22px;
   }
 
+  .page-header h1 {
+    font-size: clamp(38px, 14vw, 56px);
+  }
+
+  .page-intro {
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
   .person-catalog {
-    padding: 18px;
+    padding: 16px;
     border-radius: 22px;
   }
 
@@ -504,6 +512,16 @@ onBeforeUnmount(() => {
 
   .person-grid {
     grid-template-columns: 1fr;
+  }
+
+  .period-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .period-count {
+    padding-bottom: 0;
   }
 }
 

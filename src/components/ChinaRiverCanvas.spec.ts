@@ -1120,6 +1120,32 @@ describe('ChinaRiverCanvas', () => {
     wrapper.unmount()
   })
 
+  it('窄屏尺寸使用更紧凑的纵向分区并保持事件在画布内', () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 360,
+        height: 420,
+        dynasties: COMPLETE_DYNASTIES,
+        events: COMPLETE_EVENTS,
+      },
+    })
+    const dynastyBandHeights = wrapper
+      .findAll('[data-test="dynasty-band"]')
+      .map((band) => Number(band.attributes('height')))
+    const eventYs = wrapper
+      .findAll('.river-event')
+      .map((event) => getTranslateY(event.attributes('transform')))
+
+    expect(wrapper.get('svg').attributes('viewBox')).toBe('0 0 360 420')
+    expect(
+      Number(wrapper.get('[data-test="timeline-divider"]').attributes('y1')),
+    ).toBe(352)
+    expect(Math.max(...dynastyBandHeights)).toBeLessThanOrEqual(104)
+    expect(eventYs.length).toBeGreaterThan(0)
+    expect(Math.min(...eventYs)).toBeGreaterThanOrEqual(18)
+    wrapper.unmount()
+  })
+
   it('指针移动和连续缩放不重复计算预生成的两套朝代片段', async () => {
     const wrapper = mountCanvas()
     flushAnimationFrames()

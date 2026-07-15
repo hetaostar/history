@@ -89,4 +89,25 @@ const { containerRef } = useModalBehavior(isActive, () => emit('cancel'))
 .secondary-button {
   background: #445ce3;
 }
+
+@media (max-width: 520px) {
+  .confirm-overlay {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .confirm-modal {
+    padding: 20px;
+    border-radius: 18px;
+  }
+
+  .confirm-actions {
+    flex-direction: column;
+  }
+
+  .confirm-actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
 </style>

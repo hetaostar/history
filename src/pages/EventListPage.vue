@@ -75,7 +75,9 @@ function getPeriodIdFromHash(hash: string): string | null {
 }
 
 function prefersReducedMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  return (
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  )
 }
 
 async function scrollToPeriod(
@@ -186,9 +188,7 @@ onBeforeUnmount(() => {
     <section class="event-catalog" aria-labelledby="event-catalog-title">
       <div class="catalog-heading">
         <div>
-          <p class="catalog-meta">
-            教材 · 只读 · {{ events.length }} 个事件
-          </p>
+          <p class="catalog-meta">教材 · 只读 · {{ events.length }} 个事件</p>
           <h2 id="event-catalog-title">中华历史事件卡片</h2>
         </div>
         <span v-if="events.length" class="year-range">
@@ -204,9 +204,7 @@ onBeforeUnmount(() => {
             v-for="group in periodGroups"
             :id="`period-${group.period.id}`"
             :key="group.period.id"
-            :ref="
-              (element) => setPeriodSectionRef(group.period.id, element)
-            "
+            :ref="(element) => setPeriodSectionRef(group.period.id, element)"
             class="period-section"
             :data-period-id="group.period.id"
             :data-test="`period-section-${group.period.id}`"
@@ -332,8 +330,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 18px;
   padding-bottom: 18px;
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--muted-ink) 18%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--muted-ink) 18%, transparent);
 }
 
 .catalog-heading h2 {
@@ -385,12 +382,11 @@ onBeforeUnmount(() => {
   left: 0;
   height: 1px;
   content: '';
-  background:
-    linear-gradient(
-      90deg,
-      var(--cinnabar) 0 56px,
-      color-mix(in srgb, var(--muted-ink) 20%, transparent) 56px 100%
-    );
+  background: linear-gradient(
+    90deg,
+    var(--cinnabar) 0 56px,
+    color-mix(in srgb, var(--muted-ink) 20%, transparent) 56px 100%
+  );
 }
 
 .period-heading::after {
@@ -486,8 +482,17 @@ onBeforeUnmount(() => {
     gap: 22px;
   }
 
+  .page-header h1 {
+    font-size: clamp(38px, 14vw, 56px);
+  }
+
+  .page-intro {
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
   .event-catalog {
-    padding: 18px;
+    padding: 16px;
     border-radius: 22px;
   }
 
@@ -498,6 +503,16 @@ onBeforeUnmount(() => {
 
   .event-grid {
     grid-template-columns: 1fr;
+  }
+
+  .period-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .period-count {
+    padding-bottom: 0;
   }
 }
 

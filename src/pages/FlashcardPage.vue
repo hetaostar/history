@@ -1490,6 +1490,7 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
 
 .detail-text {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   line-height: 1.8;
 }
 
@@ -1542,6 +1543,64 @@ function shuffleCards(sourceCards: IStudyCard[]): IStudyCard[] {
 @media (max-width: 860px) {
   .detail-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .page {
+    gap: 18px;
+  }
+
+  .page-header h1 {
+    margin: 0;
+    font-size: clamp(38px, 14vw, 56px);
+  }
+
+  .primary-button,
+  .card-form button,
+  .draw-form button,
+  .batch-actions button,
+  .action-row button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .panel,
+  .card-detail,
+  .detail-block {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .form-grid,
+  .card-list {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading,
+  .batch-actions,
+  .action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .card-preview-button :deep(.entity-card) {
+    padding: 46px 16px 52px;
+  }
+
+  .card-modal {
+    padding: 10px;
+  }
+
+  .card-modal-content {
+    padding: 12px;
+    margin: 10px auto;
+    border-radius: 18px;
+  }
+
+  .close-button {
+    width: 100%;
+    min-height: 44px;
   }
 }
 </style>

@@ -25,9 +25,7 @@ const personGroups = computed(() =>
   props.groups
     .map((group) => ({
       textbook: group.textbook,
-      entry: group.entries.find(
-        (entry) => entry.person.id === props.person.id,
-      ),
+      entry: group.entries.find((entry) => entry.person.id === props.person.id),
     }))
     .filter(
       (
@@ -305,7 +303,7 @@ onMounted(() => {
 
   .person-detail-sheet {
     max-height: calc(100vh - 24px);
-    padding: 32px 24px 26px;
+    padding: 28px 20px 22px;
     overflow-y: auto;
   }
 }

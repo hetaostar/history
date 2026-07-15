@@ -143,7 +143,9 @@ watch(textbookId, () => {
       <template v-else>
         <header class="textbook-hero">
           <div>
-            <p class="eyebrow">{{ textbook.edition }} · {{ textbook.revisionYear }}</p>
+            <p class="eyebrow">
+              {{ textbook.edition }} · {{ textbook.revisionYear }}
+            </p>
             <h1>{{ textbook.title }}</h1>
             <p class="hero-summary">{{ textbook.summary }}</p>
           </div>
@@ -502,8 +504,48 @@ watch(textbookId, () => {
 }
 
 @media (max-width: 620px) {
+  .textbook-page {
+    gap: 18px;
+  }
+
   .textbook-switcher {
     grid-template-columns: repeat(6, 96px);
+    padding-bottom: 8px;
+    scroll-snap-type: x proximity;
+  }
+
+  .textbook-switcher-item {
+    scroll-snap-align: start;
+  }
+
+  .state-panel,
+  .textbook-hero,
+  .learning-section {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .state-panel {
+    min-height: 240px;
+  }
+
+  .state-panel h1,
+  .textbook-hero h1 {
+    font-size: clamp(34px, 12vw, 52px);
+    line-height: 1.05;
+  }
+
+  .hero-summary {
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .textbook-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .textbook-facts .year-fact {
+    grid-column: auto;
   }
 
   .section-heading {

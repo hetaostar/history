@@ -43,6 +43,55 @@ const DYNASTY_BAND_MIN_HEIGHT = 96
 const DYNASTY_BAND_BOTTOM_GAP = 12
 const EVENT_BASELINE_GAP = 18
 const EVENT_AREA_TOP_PADDING = 24
+const MAX_EVENT_CARD_HALF_HEIGHT = 29
+
+interface IRiverCanvasLayoutConfig {
+  readonly timelineBottomOffset: number
+  readonly timelineDividerGap: number
+  readonly dynastyBandMaxHeight: number
+  readonly dynastyBandMinHeight: number
+  readonly dynastyBandBottomGap: number
+  readonly eventBaselineGap: number
+  readonly eventAreaTopPadding: number
+  readonly eventLaneHeight: number
+  readonly eventHorizontalPadding: number
+  readonly featuredCardMinWidth: number
+  readonly yearCardMinWidth: number
+  readonly compactCardMinWidth: number
+  readonly hoverBadgeY: number
+}
+
+const DESKTOP_LAYOUT_CONFIG: IRiverCanvasLayoutConfig = {
+  timelineBottomOffset: TIMELINE_BOTTOM_OFFSET,
+  timelineDividerGap: TIMELINE_DIVIDER_GAP,
+  dynastyBandMaxHeight: DYNASTY_BAND_MAX_HEIGHT,
+  dynastyBandMinHeight: DYNASTY_BAND_MIN_HEIGHT,
+  dynastyBandBottomGap: DYNASTY_BAND_BOTTOM_GAP,
+  eventBaselineGap: EVENT_BASELINE_GAP,
+  eventAreaTopPadding: EVENT_AREA_TOP_PADDING,
+  eventLaneHeight: EVENT_LANE_HEIGHT,
+  eventHorizontalPadding: 28,
+  featuredCardMinWidth: 112,
+  yearCardMinWidth: 96,
+  compactCardMinWidth: 72,
+  hoverBadgeY: 88,
+}
+
+const COMPACT_LAYOUT_CONFIG: IRiverCanvasLayoutConfig = {
+  timelineBottomOffset: 34,
+  timelineDividerGap: 34,
+  dynastyBandMaxHeight: 104,
+  dynastyBandMinHeight: 72,
+  dynastyBandBottomGap: 9,
+  eventBaselineGap: 14,
+  eventAreaTopPadding: 18,
+  eventLaneHeight: 54,
+  eventHorizontalPadding: 22,
+  featuredCardMinWidth: 96,
+  yearCardMinWidth: 84,
+  compactCardMinWidth: 64,
+  hoverBadgeY: 64,
+}
 
 const props = defineProps<{
   width: number
@@ -285,6 +334,12 @@ const maxVisibleImportance = computed(() =>
   getMaxVisibleImportance(viewport.value.k),
 )
 
+const layoutConfig = computed(() =>
+  props.width <= 620 || props.height < 560
+    ? COMPACT_LAYOUT_CONFIG
+    : DESKTOP_LAYOUT_CONFIG,
+)
+
 watch(
   maxVisibleImportance,
   (importance) => emit('importance-change', importance),
@@ -292,11 +347,11 @@ watch(
 )
 
 const timelineAxisY = computed(() =>
-  Math.max(96, props.height - TIMELINE_BOTTOM_OFFSET),
+  Math.max(86, props.height - layoutConfig.value.timelineBottomOffset),
 )
 
 const timelineDividerY = computed(
-  () => timelineAxisY.value - TIMELINE_DIVIDER_GAP,
+  () => timelineAxisY.value - layoutConfig.value.timelineDividerGap,
 )
 
 const overviewDynastySegments = computed(() =>
@@ -315,13 +370,13 @@ const activeDynastySegments = computed(() =>
 
 const dynastyBandHeight = computed(() =>
   Math.max(
-    DYNASTY_BAND_MIN_HEIGHT,
-    Math.min(DYNASTY_BAND_MAX_HEIGHT, props.height * 0.2),
+    layoutConfig.value.dynastyBandMinHeight,
+    Math.min(layoutConfig.value.dynastyBandMaxHeight, props.height * 0.2),
   ),
 )
 
 const dynastyBandBottomY = computed(
-  () => timelineDividerY.value - DYNASTY_BAND_BOTTOM_GAP,
+  () => timelineDividerY.value - layoutConfig.value.dynastyBandBottomGap,
 )
 
 const dynastyBandTopY = computed(
@@ -329,14 +384,17 @@ const dynastyBandTopY = computed(
 )
 
 const eventBaselineY = computed(
-  () => dynastyBandTopY.value - EVENT_BASELINE_GAP,
+  () => dynastyBandTopY.value - layoutConfig.value.eventBaselineGap,
 )
 
 const maxEventLanes = computed(() =>
   Math.max(
     1,
     Math.floor(
-      (eventBaselineY.value - EVENT_AREA_TOP_PADDING) / EVENT_LANE_HEIGHT,
+      (eventBaselineY.value -
+        layoutConfig.value.eventAreaTopPadding -
+        MAX_EVENT_CARD_HALF_HEIGHT) /
+        layoutConfig.value.eventLaneHeight,
     ),
   ),
 )
@@ -447,7 +505,7 @@ const eventNodes = computed(() => {
     const showYear = node.event.importance <= 3
     const cardHeight = featured ? 58 : showYear ? 52 : 32
     const yearLabel = formatHistoricalYear(node.event.year)
-    const horizontalPadding = 28
+    const horizontalPadding = layoutConfig.value.eventHorizontalPadding
     const availableTitleWidth = node.width - horizontalPadding
     const maxTitleCharacters = Math.max(
       featured ? 3 : 2,
@@ -458,7 +516,11 @@ const eventNodes = computed(() => {
       displayTitle.length * 13,
       showYear ? yearLabel.length * 9 : 0,
     )
-    const minCardWidth = featured ? 112 : showYear ? 96 : 72
+    const minCardWidth = featured
+      ? layoutConfig.value.featuredCardMinWidth
+      : showYear
+        ? layoutConfig.value.yearCardMinWidth
+        : layoutConfig.value.compactCardMinWidth
     const cardWidth = Math.min(
       node.width,
       Math.max(minCardWidth, contentWidth + horizontalPadding),
@@ -472,8 +534,11 @@ const eventNodes = computed(() => {
       cardWidth,
       screenX: viewport.value.x + node.x,
       screenY:
-        eventBaselineY.value - node.lane * EVENT_LANE_HEIGHT - cardHeight / 2,
-      connectorLength: node.lane * EVENT_LANE_HEIGHT + cardHeight / 2,
+        eventBaselineY.value -
+        node.lane * layoutConfig.value.eventLaneHeight -
+        cardHeight / 2,
+      connectorLength:
+        node.lane * layoutConfig.value.eventLaneHeight + cardHeight / 2,
       color: getEventTypeColor(node.event.type),
       yearLabel,
       displayTitle,
@@ -806,7 +871,7 @@ onUnmounted(() => {
         />
         <g
           data-test="hover-year-badge"
-          :transform="`translate(${Math.min(props.width - 68, Math.max(68, pointerPosition.x))} 88)`"
+          :transform="`translate(${Math.min(props.width - 68, Math.max(68, pointerPosition.x))} ${layoutConfig.hoverBadgeY})`"
         >
           <rect x="-62" y="-17" width="124" height="34" rx="17" />
           <text y="5" text-anchor="middle">{{ hoverYearLabel }}</text>
@@ -997,6 +1062,24 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .river-event__content {
     transition: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .china-river-canvas {
+    border-radius: 14px;
+  }
+
+  .river-svg {
+    cursor: grab;
+  }
+
+  .dynasty-label {
+    font-size: 12px;
+  }
+
+  .tick-label {
+    font-size: 10px;
   }
 }
 </style>

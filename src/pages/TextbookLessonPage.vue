@@ -23,9 +23,7 @@ const lessonTextbookId = computed(
       ?.textbookId,
 )
 const correctTextbook = computed(() =>
-  lessonTextbookId.value
-    ? getTextbookById(lessonTextbookId.value)
-    : undefined,
+  lessonTextbookId.value ? getTextbookById(lessonTextbookId.value) : undefined,
 )
 const isCrossTextbookLesson = computed(
   () =>
@@ -76,15 +74,13 @@ function formatYear(year: number) {
       </div>
     </section>
 
-    <section
-      v-else-if="isCrossTextbookLesson"
-      class="state-panel"
-      role="alert"
-    >
+    <section v-else-if="isCrossTextbookLesson" class="state-panel" role="alert">
       <p class="eyebrow">Wrong textbook</p>
       <h1>该课程不属于当前教材</h1>
       <p>
-        “{{ requestedLesson.title }}”属于{{ correctTextbook?.title }}，请前往正确教材继续学习。
+        “{{ requestedLesson.title }}”属于{{
+          correctTextbook?.title
+        }}，请前往正确教材继续学习。
       </p>
       <div class="state-actions">
         <RouterLink
@@ -93,10 +89,7 @@ function formatYear(year: number) {
         >
           前往正确教材
         </RouterLink>
-        <RouterLink
-          v-if="textbook"
-          :to="`/textbooks/${textbook.id}`"
-        >
+        <RouterLink v-if="textbook" :to="`/textbooks/${textbook.id}`">
           返回当前教材
         </RouterLink>
         <RouterLink to="/">返回主页</RouterLink>
@@ -131,7 +124,10 @@ function formatYear(year: number) {
         </header>
 
         <div class="lesson-relations">
-          <section data-test="lesson-people" aria-labelledby="lesson-people-title">
+          <section
+            data-test="lesson-people"
+            aria-labelledby="lesson-people-title"
+          >
             <div class="section-heading">
               <h2 id="lesson-people-title">对应人物</h2>
               <span>{{ people.length }} 人</span>
@@ -148,7 +144,10 @@ function formatYear(year: number) {
             </ul>
           </section>
 
-          <section data-test="lesson-events" aria-labelledby="lesson-events-title">
+          <section
+            data-test="lesson-events"
+            aria-labelledby="lesson-events-title"
+          >
             <div class="section-heading">
               <h2 id="lesson-events-title">对应事件</h2>
               <span>{{ events.length }} 件</span>
@@ -367,6 +366,37 @@ function formatYear(year: number) {
   .lesson-hero,
   .lesson-relations {
     grid-template-columns: 1fr;
+  }
+
+  .lesson-hero,
+  .lesson-relations > section,
+  .state-panel {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .lesson-hero h1,
+  .state-panel h1 {
+    font-size: clamp(34px, 12vw, 52px);
+  }
+
+  .lesson-hero > div > p:last-child,
+  .state-panel > p:not(.eyebrow) {
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .lesson-hero aside {
+    align-self: stretch;
+  }
+
+  .section-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .state-panel {
+    min-height: 260px;
   }
 }
 </style>

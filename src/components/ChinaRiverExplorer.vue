@@ -122,4 +122,14 @@ onUnmounted(() => {
 .river-status--error {
   color: color-mix(in srgb, var(--river-page-paper) 72%, var(--cinnabar));
 }
+
+@media (max-width: 620px) {
+  .canvas-container {
+    border-radius: 14px;
+  }
+
+  .river-status {
+    padding: 20px;
+  }
+}
 </style>

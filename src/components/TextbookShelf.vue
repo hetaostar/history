@@ -120,7 +120,13 @@ h2 {
   color: var(--paper);
   text-decoration: none;
   background:
-    linear-gradient(90deg, rgb(255 255 255 / 13%), transparent 14%, transparent 86%, rgb(0 0 0 / 13%)),
+    linear-gradient(
+      90deg,
+      rgb(255 255 255 / 13%),
+      transparent 14%,
+      transparent 86%,
+      rgb(0 0 0 / 13%)
+    ),
     var(--bronze);
   border: 1px solid rgb(36 27 20 / 34%);
   border-radius: 7px 7px 3px 3px;
@@ -134,7 +140,13 @@ h2 {
 
 .textbook-spine:nth-child(even) .textbook-spine-link {
   background:
-    linear-gradient(90deg, rgb(255 255 255 / 13%), transparent 14%, transparent 86%, rgb(0 0 0 / 13%)),
+    linear-gradient(
+      90deg,
+      rgb(255 255 255 / 13%),
+      transparent 14%,
+      transparent 86%,
+      rgb(0 0 0 / 13%)
+    ),
     var(--cinnabar);
 }
 
@@ -206,9 +218,15 @@ strong {
 }
 
 @media (max-width: 720px) {
+  .textbook-shelf {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
   .shelf-heading {
     align-items: start;
     flex-direction: column;
+    gap: 14px;
   }
 
   .textbook-spines {
@@ -218,6 +236,7 @@ strong {
   }
 
   .textbook-spine {
+    min-height: 250px;
     scroll-snap-align: start;
   }
 }

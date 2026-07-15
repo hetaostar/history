@@ -89,7 +89,9 @@ const hasResults = computed(() => {
           class="result-card result-link"
           :to="`/events?event=${event.id}`"
         >
-          <strong>{{ formatHistoricalYear(event.year) }}：{{ event.title }}</strong>
+          <strong
+            >{{ formatHistoricalYear(event.year) }}：{{ event.title }}</strong
+          >
           <p v-if="event.description">{{ event.description }}</p>
           <span class="tag-list">
             <span class="tag">{{ event.type }}</span>
@@ -185,6 +187,7 @@ const hasResults = computed(() => {
 .result-card strong {
   color: #172033;
   font-size: 18px;
+  overflow-wrap: anywhere;
 }
 
 .result-card span {
@@ -207,5 +210,32 @@ const hasResults = computed(() => {
   color: #445ce3;
   background: #eef1ff;
   border-radius: 999px;
+}
+
+@media (max-width: 620px) {
+  .page {
+    gap: 18px;
+  }
+
+  .page-header h1 {
+    margin: 0;
+    font-size: clamp(38px, 14vw, 56px);
+  }
+
+  .panel,
+  .result-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .search-panel input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .result-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 </style>
