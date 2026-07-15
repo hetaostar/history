@@ -178,13 +178,17 @@ onUnmounted(() => {
 <style scoped>
 .textbook-river-timeline {
   display: grid;
-  gap: 18px;
-  padding: clamp(20px, 4vw, 36px);
-  color: var(--paper);
-  background: var(--bronze);
-  border: 1px solid color-mix(in srgb, var(--aged-gold) 55%, transparent);
-  border-radius: 28px;
-  box-shadow: 0 18px 45px rgb(36 27 20 / 14%);
+  gap: 22px;
+  padding: clamp(22px, 4vw, 36px);
+  overflow: hidden;
+  color: var(--ink);
+  background:
+    linear-gradient(90deg, rgb(54 91 76 / 7%) 1px, transparent 1px) 0 0 / 38px
+      100%,
+    color-mix(in srgb, var(--paper) 88%, white);
+  border: 1px solid rgb(74 50 35 / 16%);
+  border-radius: 30px;
+  box-shadow: 0 18px 45px rgb(36 27 20 / 10%);
 }
 
 .timeline-heading {
@@ -200,23 +204,25 @@ onUnmounted(() => {
 }
 
 .timeline-heading h2 {
-  margin-top: 4px;
+  margin-top: 0;
   font-family: var(--font-display);
   font-size: clamp(28px, 5vw, 42px);
+  line-height: 1.1;
 }
 
 .timeline-heading > p {
-  max-width: 430px;
-  color: var(--paper-deep);
+  max-width: 480px;
+  color: var(--muted-ink);
   line-height: 1.7;
 }
 
 .eyebrow {
-  color: var(--paper-deep);
+  margin: 0 0 5px;
+  color: var(--cinnabar);
   font-family: var(--font-utility);
   font-size: 11px;
   font-weight: 900;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -225,9 +231,10 @@ onUnmounted(() => {
   height: clamp(480px, 65vh, 660px);
   min-height: 480px;
   overflow: hidden;
-  background: #101820;
-  border: 1px solid color-mix(in srgb, var(--aged-gold) 55%, var(--ink));
+  background: #071e2e;
+  border: 1px solid color-mix(in srgb, #d8be7b 40%, transparent);
   border-radius: 18px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #f7f0d5 7%, transparent);
 }
 
 .timeline-status {
@@ -236,24 +243,19 @@ onUnmounted(() => {
   display: grid;
   padding: 28px;
   margin: 0;
-  color: var(--paper-deep);
+  color: #b8c1bc;
   text-align: center;
-  background: #101820;
+  background: #071e2e;
   font-family: var(--font-utility);
   font-weight: 800;
   place-items: center;
 }
 
 .timeline-status--error {
-  color: #ffd7cc;
+  color: color-mix(in srgb, #f7f0d5 72%, var(--cinnabar));
 }
 
 @media (max-width: 620px) {
-  .textbook-river-timeline {
-    padding: 16px;
-    border-radius: 20px;
-  }
-
   .timeline-heading {
     align-items: start;
     flex-direction: column;
