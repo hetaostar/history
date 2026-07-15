@@ -626,7 +626,8 @@ describe('ChinaRiverCanvas', () => {
     wrapper.unmount()
   })
 
-  it('紧凑卡片为年份优先预留空间并允许标题只显示省略号', async () => {
+  it('紧凑卡片改为两行展示，标题可省略且年份完整保留', async () => {
+    const longTitle = '这是一个用于验证紧凑卡片两行截断的超长历史事件标题'
     const wrapper = mount(ChinaRiverCanvas, {
       props: {
         width: 1200,
@@ -636,7 +637,7 @@ describe('ChinaRiverCanvas', () => {
           {
             id: 'compact-title',
             year: -237,
-            title: '夏朝建立',
+            title: longTitle,
             type: 'politics',
             importance: 2,
           },
@@ -650,11 +651,40 @@ describe('ChinaRiverCanvas', () => {
       await nextTick()
     }
 
-    expect(
-      wrapper
-        .get('[data-test="river-event-compact-title"] .event-title')
-        .text(),
-    ).toBe('… · 公元前237年')
+    const event = wrapper.get('[data-test="river-event-compact-title"]')
+    expect(event.get('.event-title').text()).toMatch(/…$/)
+    expect(event.get('.event-title').text()).not.toContain('·')
+    expect(event.get('.event-meta').text()).toBe('公元前237年')
+    expect(event.attributes('aria-label')).toContain(longTitle)
+    wrapper.unmount()
+  })
+
+  it('重要级大于 3 的事件只显示标题不显示年份', async () => {
+    const wrapper = mount(ChinaRiverCanvas, {
+      props: {
+        width: 1200,
+        height: 720,
+        dynasties,
+        events: [
+          {
+            id: 'detail-only-title',
+            year: 900,
+            title: '地方军镇割据',
+            type: 'politics',
+            importance: 4,
+          },
+        ],
+        initialCenterYear: 900,
+        initialZoom: 2.5,
+      },
+    })
+    flushAnimationFrames()
+    await nextTick()
+
+    const event = wrapper.get('[data-test="river-event-detail-only-title"]')
+    expect(event.get('.event-title').text()).toBe('地方军镇割据')
+    expect(event.find('.event-meta').exists()).toBe(false)
+    expect(event.attributes('aria-label')).toContain('公元900年')
     wrapper.unmount()
   })
 

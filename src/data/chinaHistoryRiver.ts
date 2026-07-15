@@ -482,7 +482,7 @@ const RAW_KEY_EVENTS = [
     year: -2070,
     title: '夏朝建立',
     type: 'politics',
-    importance: 2,
+    importance: 1,
     description:
       '约公元前2070年，禹建立夏王朝，这是中国历史上的第一个王朝。禹死后其子启继位，世袭制代替禅让制。',
   },
@@ -514,7 +514,7 @@ const RAW_KEY_EVENTS = [
     year: -1046,
     title: '牧野之战 (武王伐纣)',
     type: 'war',
-    importance: 2,
+    importance: 1,
     description:
       '公元前1046年，周武王联合各地势力与商军在牧野决战，商军倒戈，周军占领商都，商朝灭亡，周朝建立。',
   },
@@ -699,7 +699,7 @@ const RAW_KEY_EVENTS = [
     year: -221,
     title: '秦灭齐 • 统一六国',
     type: 'war',
-    importance: 1,
+    importance: 2,
     description:
       '公元前230年起秦国发动灭六国战争，先后攻灭韩、赵、魏、楚、燕、齐。公元前221年完成统一，建立秦朝，定都咸阳。',
   },
@@ -755,7 +755,7 @@ const RAW_KEY_EVENTS = [
     year: -202,
     title: '汉朝建立',
     type: 'politics',
-    importance: 1,
+    importance: 2,
     description:
       '楚汉之争后，刘邦战胜项羽，建立西汉，定都长安，采取休养生息政策，社会经济逐渐恢复。',
   },
@@ -825,7 +825,7 @@ const RAW_KEY_EVENTS = [
     year: 25,
     title: '光武中兴',
     type: 'politics',
-    importance: 6,
+    importance: 1,
     description:
       '王莽政权被推翻后，西汉宗室刘秀于公元25年称帝，定都洛阳，史称东汉。东汉初期社会比较安定，史称“光武中兴”。',
   },
@@ -1993,7 +1993,7 @@ const RAW_KEY_EVENTS = [
     year: 1644,
     title: '清军入关',
     type: 'war',
-    importance: 2,
+    importance: 1,
     description:
       '1644年，李自成攻占北京，明朝灭亡；随后清军入关。',
   },

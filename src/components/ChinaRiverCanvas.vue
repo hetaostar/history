@@ -444,28 +444,39 @@ const eventNodes = computed(() => {
     maxLane: maxEventLanes.value,
   }).map((node) => {
     const featured = node.event.importance === 1
-    const cardHeight = featured ? 58 : 32
+    const showYear = node.event.importance <= 3
+    const cardHeight = featured ? 58 : showYear ? 52 : 32
     const yearLabel = formatHistoricalYear(node.event.year)
-    const availableTitleWidth = featured
-      ? node.width - 28
-      : node.width - yearLabel.length * 9 - 38
+    const horizontalPadding = 28
+    const availableTitleWidth = node.width - horizontalPadding
     const maxTitleCharacters = Math.max(
-      featured ? 3 : 1,
+      featured ? 3 : 2,
       Math.floor(availableTitleWidth / 13),
+    )
+    const displayTitle = truncateLabel(node.event.title, maxTitleCharacters)
+    const contentWidth = Math.max(
+      displayTitle.length * 13,
+      showYear ? yearLabel.length * 9 : 0,
+    )
+    const minCardWidth = featured ? 112 : showYear ? 96 : 72
+    const cardWidth = Math.min(
+      node.width,
+      Math.max(minCardWidth, contentWidth + horizontalPadding),
     )
 
     return {
       ...node,
       featured,
+      showYear,
       cardHeight,
-      cardWidth: node.width,
+      cardWidth,
       screenX: viewport.value.x + node.x,
       screenY:
         eventBaselineY.value - node.lane * EVENT_LANE_HEIGHT - cardHeight / 2,
       connectorLength: node.lane * EVENT_LANE_HEIGHT + cardHeight / 2,
       color: getEventTypeColor(node.event.type),
       yearLabel,
-      displayTitle: truncateLabel(node.event.title, maxTitleCharacters),
+      displayTitle,
     }
   })
 })
@@ -762,23 +773,19 @@ onUnmounted(() => {
               :fill="`url(#${eventPaperId})`"
             />
             <text
-              v-if="node.featured"
               class="event-title"
-              y="-4"
+              :y="node.showYear ? -4 : 4"
               text-anchor="middle"
             >
               {{ node.displayTitle }}
             </text>
             <text
-              v-if="node.featured"
+              v-if="node.showYear"
               class="event-meta"
               y="17"
               text-anchor="middle"
             >
               {{ node.yearLabel }}
-            </text>
-            <text v-else class="event-title" y="4" text-anchor="middle">
-              {{ node.displayTitle }} · {{ node.yearLabel }}
             </text>
           </g>
         </g>

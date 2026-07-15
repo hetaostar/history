@@ -698,13 +698,17 @@ export function layoutRiverEvents(
   sortedEvents.forEach(({ event }) => {
     const x = (event.year - originYear) * options.pixelsPerYear * options.zoom
     const yearLabel = formatHistoricalYear(event.year)
+    const showYear = event.importance <= 3
+    // 两行展示：宽度取标题行与年份行的较大者；无年份时仅按标题估算
+    const titleWidth = event.title.length * 13
+    const yearWidth = showYear ? yearLabel.length * 9 : 0
     const measuredWidth =
-      event.title.length * 14 + yearLabel.length * 9 + 15 + horizontalPadding
+      Math.max(titleWidth, yearWidth) + 28 + horizontalPadding
     const scaledWidth = measuredWidth * labelScale
     const width =
       event.importance === 1
-        ? Math.min(220, Math.max(152, scaledWidth))
-        : Math.min(184, Math.max(104, scaledWidth))
+        ? Math.min(220, Math.max(112, scaledWidth))
+        : Math.min(184, Math.max(showYear ? 96 : 72, scaledWidth))
     const startX = x - width / 2
     const endX = x + width / 2
     assertFinite(x, `event "${event.id}" x`)

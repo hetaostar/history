@@ -735,7 +735,7 @@ describe('layoutRiverEvents', () => {
       },
       {
         id: 'featured-second',
-        year: 250,
+        year: 180,
         title: '乙',
         type: 'politics',
         importance: 1,
@@ -746,7 +746,7 @@ describe('layoutRiverEvents', () => {
       pixelsPerYear: 1,
     })
 
-    expect(nodes.map(({ width }) => width)).toEqual([152, 152])
+    expect(nodes.map(({ width }) => width)).toEqual([112, 112])
     expect(nodes[0]?.lane).not.toBe(nodes[1]?.lane)
   })
 
