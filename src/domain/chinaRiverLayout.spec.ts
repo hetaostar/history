@@ -502,6 +502,45 @@ describe('calculateTimelineTicks', () => {
     )
   })
 
+  it('宽跨度配合可用宽度时使用更粗的主刻度', () => {
+    const ticks = calculateTimelineTicks(-2500, 2025, {
+      availableWidth: 800,
+    })
+
+    expect(ticks.majorStep).toBe(1000)
+    expect(ticks.minorStep).toBe(200)
+    expect(ticks.majorTicks.length).toBeLessThanOrEqual(
+      Math.floor(800 / 96) + 2,
+    )
+  })
+
+  it('窄跨度配合可用宽度时细化到逐年主刻度', () => {
+    const ticks = calculateTimelineTicks(100, 108, {
+      availableWidth: 800,
+    })
+
+    expect(ticks.majorStep).toBe(1)
+    expect(ticks.minorStep).toBeNull()
+    expect(ticks.majorTicks).toEqual([100, 101, 102, 103, 104, 105, 106, 107, 108])
+  })
+
+  it('按可用宽度保证主刻度间距不低于最小间距', () => {
+    const availableWidth = 800
+    const minMajorTickSpacing = 96
+    const startYear = 0
+    const endYear = 200
+    const span = endYear - startYear
+    const ticks = calculateTimelineTicks(startYear, endYear, {
+      availableWidth,
+      minMajorTickSpacing,
+    })
+
+    const estimatedSpacing = (availableWidth * ticks.majorStep) / span
+    expect(estimatedSpacing).toBeGreaterThanOrEqual(minMajorTickSpacing)
+    expect(ticks.majorStep).toBe(25)
+    expect(ticks.minorStep).toBe(5)
+  })
+
   it.each([
     [Number.NaN, 100, 'firstYear must be finite'],
     [0, Number.NaN, 'secondYear must be finite'],
@@ -530,6 +569,12 @@ describe('calculateTimelineTicks', () => {
     expect(() =>
       calculateTimelineTicks(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER),
     ).toThrowError('timeline span must be a safe integer')
+  })
+
+  it('拒绝非正可用宽度', () => {
+    expect(() =>
+      calculateTimelineTicks(0, 100, { availableWidth: 0 }),
+    ).toThrowError('availableWidth must be greater than 0')
   })
 })
 
