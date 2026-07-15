@@ -153,7 +153,7 @@ describe('chinaHistoryRiver', () => {
     )
 
     expect(eventByTitle['秦始皇统一六国'].description).toBe(
-      '公元前221年，秦始皇统一六国。这是一项发生于秦时期的政治事件。',
+      '秦王嬴政完成统一后自称始皇帝，创立皇帝制度和中央集权制，统一文字、货币、度量衡，建立起我国历史上第一个统一的多民族的封建国家。',
     )
     expect(eventByTitle['夷陵之战'].description).toBe(
       '222年，夷陵之战。这是一项处于魏、蜀、吴等政权并立阶段的战争事件。',

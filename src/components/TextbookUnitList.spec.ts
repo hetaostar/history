@@ -32,13 +32,13 @@ describe('TextbookUnitList', () => {
     expect(document.activeElement).toBe(firstSummary.element)
     expect(firstDetails.attributes()).not.toHaveProperty('open')
     expect(firstSummary.attributes('aria-label')).toBe(
-      '展开第 1 单元课程：史前时期：原始社会与中华文明的起源',
+      '展开第 1 单元课程：史前时期：中国境内早期人类与文明的起源',
     )
 
     ;(firstDetails.element as HTMLDetailsElement).open = true
     await firstDetails.trigger('toggle')
     expect(firstSummary.attributes('aria-label')).toBe(
-      '收起第 1 单元课程：史前时期：原始社会与中华文明的起源',
+      '收起第 1 单元课程：史前时期：中国境内早期人类与文明的起源',
     )
     wrapper.unmount()
   })

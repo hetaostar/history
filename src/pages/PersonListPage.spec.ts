@@ -74,9 +74,9 @@ describe('PersonListPage', () => {
     expect(confuciusCard.text()).toContain('孔子')
     expect(confuciusCard.text()).toContain('前551—前479年')
     expect(confuciusCard.text()).toContain('儒家学派创始人')
-    expect(confuciusCard.text()).not.toContain('第7课 百家争鸣')
+    expect(confuciusCard.text()).not.toContain('第8课 百家争鸣')
     expect(
-      wrapper.find('[data-test="person-lesson-g7u-lesson-07"]').exists(),
+      wrapper.find('[data-test="person-lesson-g7u-lesson-08"]').exists(),
     ).toBe(false)
     expect(wrapper.text()).toContain('朝代索引')
     expect(wrapper.text()).not.toContain('教材索引')
@@ -94,10 +94,10 @@ describe('PersonListPage', () => {
 
     expect(router.currentRoute.value.query.person).toBe('g7u-confucius')
     const detail = wrapper.get('[data-test="textbook-person-detail"]')
-    expect(detail.text()).toContain('第7课 百家争鸣')
+    expect(detail.text()).toContain('第8课 百家争鸣')
     expect(
-      detail.get('[data-test="person-lesson-g7u-lesson-07"]').attributes('href'),
-    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-07')
+      detail.get('[data-test="person-lesson-g7u-lesson-08"]').attributes('href'),
+    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-08')
   })
 
   it('不显示人物增删改、批删和事件新建入口', async () => {

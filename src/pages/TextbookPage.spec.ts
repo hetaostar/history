@@ -105,7 +105,7 @@ describe('TextbookPage', () => {
       personLesson: '百家争鸣',
       eventId: 'china-event-0001',
       eventTitle: '夏朝建立',
-      eventLesson: '夏商西周王朝的更替',
+      eventLesson: '夏商周的更替',
     },
     {
       textbookId: 'grade-7-down',

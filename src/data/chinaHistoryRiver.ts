@@ -483,6 +483,8 @@ const RAW_KEY_EVENTS = [
     title: '夏朝建立',
     type: 'politics',
     importance: 2,
+    description:
+      '约公元前2070年，禹建立夏王朝，这是中国历史上的第一个王朝。禹死后其子启继位，世袭制代替禅让制。',
   },
   {
     id: 'china-event-0002',
@@ -490,6 +492,8 @@ const RAW_KEY_EVENTS = [
     title: '鸣条之战 (商汤灭夏)',
     type: 'war',
     importance: 6,
+    description:
+      '商的首领汤联络周围部族起兵攻伐夏桀，桀大败，夏王朝灭亡。约公元前1600年，汤建立商朝。',
   },
   {
     id: 'china-event-0003',
@@ -511,6 +515,8 @@ const RAW_KEY_EVENTS = [
     title: '牧野之战 (武王伐纣)',
     type: 'war',
     importance: 2,
+    description:
+      '公元前1046年，周武王联合各地势力与商军在牧野决战，商军倒戈，周军占领商都，商朝灭亡，周朝建立。',
   },
   {
     id: 'china-event-0006',
@@ -518,6 +524,8 @@ const RAW_KEY_EVENTS = [
     title: '周公摄政',
     type: 'politics',
     importance: 10,
+    description:
+      '周武王时周公等人辅佐周部族日益强盛；西周建立后，周公等参与完善分封制，将宗亲和功臣分封到各地，确立周王朝的社会等级制度。',
   },
   {
     id: 'china-event-0007',
@@ -539,6 +547,8 @@ const RAW_KEY_EVENTS = [
     title: '平王东迁（东周始）',
     type: 'politics',
     importance: 6,
+    description:
+      '周平王东迁后，周王室统治力大减，直接管辖地区仅在洛邑一带；周王虽名义上仍是天下共主，但已无力控制诸侯，诸侯国势力崛起。',
   },
   {
     id: 'china-event-0010',
@@ -546,6 +556,8 @@ const RAW_KEY_EVENTS = [
     title: '齐桓公称霸',
     type: 'politics',
     importance: 10,
+    description:
+      '齐桓公任用管仲改革内政、发展生产、训练军队，打着“尊天子，攘四夷”的旗号号令诸侯，成为春秋时期第一个霸主。',
   },
   {
     id: 'china-event-0011',
@@ -553,6 +565,8 @@ const RAW_KEY_EVENTS = [
     title: '城濮之战',
     type: 'war',
     importance: 10,
+    description:
+      '春秋时期诸侯为争夺霸主地位相互征战。晋文公等先后称霸；城濮是春秋争霸中的重要战场之一。',
   },
   {
     id: 'china-event-0012',
@@ -560,6 +574,8 @@ const RAW_KEY_EVENTS = [
     title: '孔子诞生',
     type: 'culture',
     importance: 2,
+    description:
+      '孔子是春秋后期鲁国人，儒家学派创始人，提出“仁”的思想，创办私学，主张“有教无类”，其思想整理成《论语》。',
   },
   {
     id: 'china-event-0013',
@@ -567,6 +583,8 @@ const RAW_KEY_EVENTS = [
     title: '孙武著《孙子兵法》',
     type: 'culture',
     importance: 8,
+    description:
+      '春秋末期兵家创始人孙武所著《孙子兵法》，奠定了我国古代军事理论的基础。',
   },
   {
     id: 'china-event-0014',
@@ -581,6 +599,8 @@ const RAW_KEY_EVENTS = [
     title: '三家分晋',
     type: 'politics',
     importance: 6,
+    description:
+      '战国初年，晋国被韩、赵、魏三家大夫瓜分，齐国由大夫田氏取代；此后齐、楚、燕、韩、赵、魏、秦势力较强，史称“战国七雄”。',
   },
   {
     id: 'china-event-0016',
@@ -588,6 +608,8 @@ const RAW_KEY_EVENTS = [
     title: '商鞅变法',
     type: 'politics',
     importance: 6,
+    description:
+      '公元前356年，秦孝公任用商鞅主持变法，确立县制、废除贵族世袭特权、奖励耕战等，使秦国国力大为增强，为以后统一全国奠定基础。',
   },
   {
     id: 'china-event-0017',
@@ -602,6 +624,8 @@ const RAW_KEY_EVENTS = [
     title: '屈原投江',
     type: 'culture',
     importance: 8,
+    description:
+      '战国末期楚国爱国诗人屈原吸收民歌精华，采用楚国方言创造出新体诗歌“楚辞”，代表作有《离骚》等。',
   },
   {
     id: 'china-event-0019',
@@ -609,6 +633,8 @@ const RAW_KEY_EVENTS = [
     title: '长平之战',
     type: 'war',
     importance: 6,
+    description:
+      '战国时期著名的大规模战役之一，发生在今山西高平一带，是七雄兼并战争日益激烈的代表性战事。',
   },
   {
     id: 'china-event-0020',
@@ -616,6 +642,8 @@ const RAW_KEY_EVENTS = [
     title: '李冰修筑都江堰',
     type: 'science',
     importance: 8,
+    description:
+      '公元前256年，蜀郡郡守李冰主持在成都附近的岷江上修建都江堰，使成都平原成为“天府之国”。',
   },
   {
     id: 'china-event-0021',
@@ -672,6 +700,8 @@ const RAW_KEY_EVENTS = [
     title: '秦灭齐 • 统一六国',
     type: 'war',
     importance: 1,
+    description:
+      '公元前230年起秦国发动灭六国战争，先后攻灭韩、赵、魏、楚、燕、齐。公元前221年完成统一，建立秦朝，定都咸阳。',
   },
 
   // --- 秦汉 ---
@@ -681,6 +711,8 @@ const RAW_KEY_EVENTS = [
     title: '秦始皇统一六国',
     type: 'politics',
     importance: 1,
+    description:
+      '秦王嬴政完成统一后自称始皇帝，创立皇帝制度和中央集权制，统一文字、货币、度量衡，建立起我国历史上第一个统一的多民族的封建国家。',
   },
   {
     id: 'china-event-0030',
@@ -688,6 +720,8 @@ const RAW_KEY_EVENTS = [
     title: '修筑灵渠',
     type: 'science',
     importance: 10,
+    description:
+      '秦统一后，秦始皇派兵开凿灵渠，沟通长江和珠江流域，便利了对岭南地区的统一与经营。',
   },
   {
     id: 'china-event-0031',
@@ -695,6 +729,8 @@ const RAW_KEY_EVENTS = [
     title: '焚书坑儒',
     type: 'culture',
     importance: 8,
+    description:
+      '秦始皇为禁锢人们的思想言论，下令烧毁诗书，并将一批儒生和方士活埋，史称“焚书坑儒”。',
   },
   {
     id: 'china-event-0032',
@@ -702,6 +738,8 @@ const RAW_KEY_EVENTS = [
     title: '秦始皇驾崩',
     type: 'politics',
     importance: 6,
+    description:
+      '秦始皇死后，继位的秦二世更加残暴，加重徭役和赋税，激化了社会矛盾。',
   },
   {
     id: 'china-event-0033',
@@ -709,6 +747,8 @@ const RAW_KEY_EVENTS = [
     title: '陈胜吴广起义',
     type: 'war',
     importance: 8,
+    description:
+      '公元前209年，陈胜、吴广在大泽乡发动起义，建立张楚政权，这是中国历史上第一次大规模的农民起义。',
   },
   {
     id: 'china-event-0034',
@@ -716,6 +756,8 @@ const RAW_KEY_EVENTS = [
     title: '汉朝建立',
     type: 'politics',
     importance: 1,
+    description:
+      '楚汉之争后，刘邦战胜项羽，建立西汉，定都长安，采取休养生息政策，社会经济逐渐恢复。',
   },
   {
     id: 'china-event-0035',
@@ -730,6 +772,8 @@ const RAW_KEY_EVENTS = [
     title: '张骞出使西域',
     type: 'politics',
     importance: 6,
+    description:
+      '公元前138年，张骞奉汉武帝之命第一次出使西域，打通汉朝与西域各国的联系，为丝绸之路的开通创造了条件。',
   },
   {
     id: 'china-event-0037',
@@ -737,6 +781,8 @@ const RAW_KEY_EVENTS = [
     title: '漠北之战',
     type: 'war',
     importance: 8,
+    description:
+      '公元前119年，汉武帝派大将卫青、霍去病深入漠北出击匈奴，是汉代对匈奴战争的高潮之一。',
   },
   {
     id: 'china-event-0038',
@@ -744,6 +790,8 @@ const RAW_KEY_EVENTS = [
     title: '太初历颁布',
     type: 'science',
     importance: 10,
+    description:
+      '汉武帝时颁行《太初历》，这是一种阴阳合历，同时采用阴历的十二个月份和阳历的二十四个节气。',
   },
   {
     id: 'china-event-0039',
@@ -751,6 +799,8 @@ const RAW_KEY_EVENTS = [
     title: '司马迁完成《史记》',
     type: 'culture',
     importance: 6,
+    description:
+      '司马迁著成《史记》，记述从黄帝到汉武帝时期的历史，是我国古代第一部纪传体通史。',
   },
   {
     id: 'china-event-0040',
@@ -758,6 +808,8 @@ const RAW_KEY_EVENTS = [
     title: '西域都护府设立',
     type: 'politics',
     importance: 8,
+    description:
+      '西汉在西域设置都护，作为管理西域的军政机构，标志着西域正式归属中央政权。',
   },
   {
     id: 'china-event-0041',
@@ -765,6 +817,8 @@ const RAW_KEY_EVENTS = [
     title: '王莽篡汉',
     type: 'politics',
     importance: 8,
+    description:
+      '公元9年，外戚王莽夺取政权，建立新朝，西汉灭亡。王莽的施政加剧社会动荡，激起各地农民起义。',
   },
   {
     id: 'china-event-0042',
@@ -772,6 +826,8 @@ const RAW_KEY_EVENTS = [
     title: '光武中兴',
     type: 'politics',
     importance: 6,
+    description:
+      '王莽政权被推翻后，西汉宗室刘秀于公元25年称帝，定都洛阳，史称东汉。东汉初期社会比较安定，史称“光武中兴”。',
   },
   {
     id: 'china-event-0043',
@@ -779,6 +835,8 @@ const RAW_KEY_EVENTS = [
     title: '白马寺建立(佛教传入)',
     type: 'culture',
     importance: 10,
+    description:
+      '东汉时佛教传入中国。白马寺位于河南洛阳，是中国最早的佛寺之一。',
   },
   {
     id: 'china-event-0044',
@@ -793,6 +851,8 @@ const RAW_KEY_EVENTS = [
     title: '许慎《说文解字》',
     type: 'culture',
     importance: 10,
+    description:
+      '东汉许慎编写《说文解字》，系统整理汉字字形与字义，是我国第一部完备的字典。',
   },
   {
     id: 'china-event-0046',
@@ -800,6 +860,8 @@ const RAW_KEY_EVENTS = [
     title: '蔡伦改进造纸术',
     type: 'science',
     importance: 2,
+    description:
+      '东汉宦官蔡伦改进造纸工艺，用树皮、麻头、破布、旧渔网等作原料，使纸张更便于推广，促进文化传播。',
   },
   {
     id: 'china-event-0047',
@@ -807,6 +869,8 @@ const RAW_KEY_EVENTS = [
     title: '张衡发明地动仪',
     type: 'science',
     importance: 8,
+    description:
+      '东汉科学家张衡发明地动仪，用以测定地震发生的方向，还制造了浑天仪等天文仪器。',
   },
   {
     id: 'china-event-0048',
@@ -814,6 +878,8 @@ const RAW_KEY_EVENTS = [
     title: '黄巾起义',
     type: 'war',
     importance: 6,
+    description:
+      '东汉末年爆发大规模农民起义，起义军头裹黄巾，称为黄巾起义，沉重打击了东汉统治。',
   },
   {
     id: 'china-event-0049',
@@ -830,6 +896,8 @@ const RAW_KEY_EVENTS = [
     title: '官渡之战',
     type: 'war',
     importance: 8,
+    description:
+      '200年，曹操在官渡击败袁绍，此后陆续消灭北方割据势力，基本统一北方。',
   },
   {
     id: 'china-event-0051',
@@ -837,6 +905,8 @@ const RAW_KEY_EVENTS = [
     title: '赤壁之战',
     type: 'war',
     importance: 2,
+    description:
+      '208年，孙刘联军在赤壁用火攻大败曹操。此战对当时局势有关键性影响，为三国鼎立局面的形成奠定基础。',
   },
   {
     id: 'china-event-0052',
@@ -844,6 +914,8 @@ const RAW_KEY_EVENTS = [
     title: '曹丕称帝',
     type: 'politics',
     importance: 6,
+    description:
+      '220年，曹操之子曹丕废掉汉献帝，在洛阳称帝，国号魏，三国鼎立局面正式形成。',
   },
   {
     id: 'china-event-0053',
@@ -858,6 +930,8 @@ const RAW_KEY_EVENTS = [
     title: '诸葛亮出师表',
     type: 'politics',
     importance: 10,
+    description:
+      '诸葛亮辅佐刘备筹划军政大事，后任丞相；刘备死后主持蜀汉政事，多次出师伐魏，最后在行军途中病逝。',
   },
   {
     id: 'china-event-0055',
@@ -865,6 +939,7 @@ const RAW_KEY_EVENTS = [
     title: '魏灭蜀',
     type: 'war',
     importance: 8,
+    description: '263年，魏灭蜀，三国鼎立的局面开始走向结束。',
   },
   {
     id: 'china-event-0056',
@@ -872,6 +947,8 @@ const RAW_KEY_EVENTS = [
     title: '司马炎建晋',
     type: 'politics',
     importance: 6,
+    description:
+      '266年，司马懿之孙司马炎自立为帝，改国号为晋，以洛阳为都，史称西晋；后灭吴，短暂统一全国。',
   },
   {
     id: 'china-event-0057',
@@ -879,6 +956,8 @@ const RAW_KEY_EVENTS = [
     title: '八王之乱',
     type: 'war',
     importance: 8,
+    description:
+      '西晋皇族诸王为争夺中央政权相互混战，史称“八王之乱”，历时十几年，严重削弱西晋统治，人民饱受痛苦。',
   },
   {
     id: 'china-event-0058',
@@ -886,6 +965,8 @@ const RAW_KEY_EVENTS = [
     title: '五胡乱华',
     type: 'war',
     importance: 6,
+    description:
+      '西晋末年，内迁的匈奴、鲜卑、羯、氐、羌等北方各族崛起，中原政权瓦解，北方陷入长期分裂混战。',
   },
   {
     id: 'china-event-0059',
@@ -893,6 +974,8 @@ const RAW_KEY_EVENTS = [
     title: '王羲之《兰亭集序》',
     type: 'culture',
     importance: 8,
+    description:
+      '东晋书法家王羲之的行书代表作《兰亭集序》，被誉为“天下第一行书”，后人称王羲之为“书圣”。',
   },
   {
     id: 'china-event-0060',
@@ -900,6 +983,8 @@ const RAW_KEY_EVENTS = [
     title: '莫高窟开凿',
     type: 'culture',
     importance: 10,
+    description:
+      '敦煌莫高窟保存了大量壁画和塑像，是魏晋南北朝以来佛教石窟艺术的重要代表，也反映北方民族交融与文化交流。',
   },
   {
     id: 'china-event-0061',
@@ -907,6 +992,8 @@ const RAW_KEY_EVENTS = [
     title: '淝水之战',
     type: 'war',
     importance: 6,
+    description:
+      '383年，前秦苻坚率大军南下攻晋，东晋以八万精兵在淝水大败前秦。淝水之战后前秦很快土崩瓦解，北方再度陷入分裂。',
   },
   {
     id: 'china-event-0062',
@@ -914,6 +1001,8 @@ const RAW_KEY_EVENTS = [
     title: '刘裕代晋',
     type: 'politics',
     importance: 8,
+    description:
+      '420年东晋灭亡。此后南方相继出现宋、齐、梁、陈四个王朝，都在建康定都，历史上统称为南朝；宋是南朝疆域最大的朝代。',
   },
   {
     id: 'china-event-0063',
@@ -928,6 +1017,8 @@ const RAW_KEY_EVENTS = [
     title: '祖冲之计算圆周率',
     type: 'science',
     importance: 8,
+    description:
+      '南朝科学家祖冲之把圆周率精确到小数点后第七位，领先世界近千年，还编制了《大明历》。',
   },
   {
     id: 'china-event-0065',
@@ -935,6 +1026,8 @@ const RAW_KEY_EVENTS = [
     title: '北魏孝文帝迁都',
     type: 'politics',
     importance: 8,
+    description:
+      '北魏孝文帝迁都洛阳，并规定朝廷使用汉语、改穿汉服、改汉姓、鼓励鲜卑贵族与汉人联姻等，推动北方民族大交融。',
   },
   {
     id: 'china-event-0066',

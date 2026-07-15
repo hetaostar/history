@@ -25,27 +25,27 @@ import {
 } from './textbookSelectors'
 
 const GRADE_7_UP_TITLES = [
-  '远古时期的人类活动',
-  '原始农业与史前社会',
-  '中华文明的起源',
-  '夏商西周王朝的更替',
-  '动荡变化中的春秋时期',
-  '战国时期的社会变革',
+  '中国境内早期人类的代表——北京人',
+  '原始农耕生活',
+  '远古的传说',
+  '夏商周的更替',
+  '青铜器与甲骨文',
+  '动荡的春秋时期',
+  '战国时期的社会变化',
   '百家争鸣',
-  '夏商周时期的科技与文化',
   '秦统一中国',
   '秦末农民大起义',
   '西汉建立和“文景之治”',
-  '大一统王朝的巩固',
+  '汉武帝巩固大一统王朝',
   '东汉的兴衰',
-  '丝绸之路的开通与经营西域',
-  '秦汉时期的科技与文化',
+  '沟通中外文明的“丝绸之路”',
+  '两汉的科技和文化',
   '三国鼎立',
   '西晋的短暂统一和北方各族的内迁',
-  '东晋南朝政治和江南地区开发',
-  '北朝政治和北方民族大交融',
-  '三国两晋南北朝时期的科技与文化',
-  '活动课 从考古发现看中华文明的起源与形成',
+  '东晋南朝时期江南地区的开发',
+  '北魏政治和北方民族大交融',
+  '魏晋南北朝的科技与文化',
+  '活动课：让我们共同来感受历史',
 ] as const
 
 const GRADE_7_DOWN_TITLES = [
@@ -103,10 +103,10 @@ describe('教材内置数据', () => {
     const units = getTextbookUnits('grade-7-up')
     expect(units.map((unit) => unit.order)).toEqual([1, 2, 3, 4])
     expect(units.map((unit) => unit.title)).toEqual([
-      '史前时期：原始社会与中华文明的起源',
-      '夏商周时期：奴隶制王朝的更替和向封建社会的过渡',
-      '秦汉时期：统一多民族封建国家的建立和巩固',
-      '三国两晋南北朝时期：孕育统一和民族交融',
+      '史前时期：中国境内早期人类与文明的起源',
+      '夏商周时期：早期国家与社会变革',
+      '秦汉时期：统一多民族国家的建立和巩固',
+      '三国两晋南北朝时期：政权分立与民族交融',
     ])
     expect(getTextbookLessons('grade-7-up').map((lesson) => lesson.title)).toEqual(
       GRADE_7_UP_TITLES,
@@ -238,9 +238,10 @@ describe('教材内置数据', () => {
 })
 
 describe('课程事件映射', () => {
-  it('七上第7课完整覆盖2024教材诸子且不混入孙武', () => {
-    const lesson = getLesson('g7u-lesson-07')
+  it('七上第8课完整覆盖诸子并关联孙武、屈原', () => {
+    const lesson = getLesson('g7u-lesson-08')
 
+    expect(lesson.title).toBe('百家争鸣')
     expect(lesson.personIds).toEqual([
       'g7u-confucius',
       'g7u-laozi',
@@ -249,26 +250,40 @@ describe('课程事件映射', () => {
       'g7u-xunzi',
       'g7u-zhuangzi',
       'g7u-han-fei',
-    ])
-    expect(lesson.eventIds).toEqual(['china-event-0012'])
-  })
-
-  it('七上第8课关联孙武、扁鹊、屈原及其准确事件', () => {
-    const lesson = getLesson('g7u-lesson-08')
-
-    expect(lesson.personIds).toEqual([
       'g7u-sun-wu',
-      'g7u-bian-que',
       'g7u-qu-yuan',
     ])
     expect(lesson.eventIds).toEqual([
+      'china-event-0012',
       'china-event-0013',
       'china-event-0018',
     ])
+    expect(lesson.personIds).not.toContain('g7u-bian-que')
     expect(lesson.eventIds).not.toContain('china-event-0014')
   })
 
-  it('七上第15课人物覆盖全部主体事件', () => {
+  it('七上第7课关联商鞅变法与都江堰主题', () => {
+    const lesson = getLesson('g7u-lesson-07')
+
+    expect(lesson.title).toBe('战国时期的社会变化')
+    expect(lesson.personIds).toEqual(['g7u-shang-yang', 'g7u-li-bing'])
+    expect(lesson.eventIds).toEqual([
+      'china-event-0015',
+      'china-event-0016',
+      'china-event-0019',
+      'china-event-0020',
+    ])
+  })
+
+  it('七上第5课青铜器与甲骨文暂无现成人/事条目', () => {
+    const lesson = getLesson('g7u-lesson-05')
+
+    expect(lesson.title).toBe('青铜器与甲骨文')
+    expect(lesson.personIds).toEqual([])
+    expect(lesson.eventIds).toEqual([])
+  })
+
+  it('七上第15课人物覆盖全部主体事件并含扁鹊', () => {
     const lesson = getLesson('g7u-lesson-15')
 
     expect(lesson.personIds).toEqual([
@@ -278,6 +293,7 @@ describe('课程事件映射', () => {
       'g7u-zhang-heng',
       'g7u-zhang-zhongjing',
       'g7u-hua-tuo',
+      'g7u-bian-que',
     ])
     expect(lesson.eventIds).toEqual([
       'china-event-0039',
@@ -336,7 +352,7 @@ describe('课程事件映射', () => {
     )
   })
 
-  it('七上科技文化课不混入王朝政治事件', () => {
+  it('七上百家争鸣课不混入王朝政治事件', () => {
     expect(getLesson('g7u-lesson-08').eventIds).not.toEqual(
       expect.arrayContaining([
         'china-event-0003',
@@ -565,9 +581,9 @@ describe('教材查询层', () => {
     expect(memberships).toHaveLength(1)
     expect(memberships[0].textbook.id).toBe('grade-7-up')
     expect(memberships[0].lessons.map((lesson) => lesson.id)).toEqual([
-      'g7u-lesson-07',
+      'g7u-lesson-08',
     ])
-    expect(memberships[0].lessons[0].lessonNumber).toBe(7)
+    expect(memberships[0].lessons[0].lessonNumber).toBe(8)
     expect(memberships[0].lessons[0].title).toBe('百家争鸣')
   })
 

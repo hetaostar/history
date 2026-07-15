@@ -49,11 +49,11 @@ describe('TextbookLessonPage', () => {
     expect(breadcrumb.text()).toContain('主页')
     expect(breadcrumb.text()).toContain('七年级上册')
     expect(breadcrumb.text()).toContain(
-      '夏商周时期：奴隶制王朝的更替和向封建社会的过渡',
+      '夏商周时期：早期国家与社会变革',
     )
-    expect(breadcrumb.text()).toContain('夏商西周王朝的更替')
-    expect(wrapper.get('h1').text()).toBe('夏商西周王朝的更替')
-    expect(wrapper.text()).toContain('梳理早期王朝的建立、更替和西周制度。')
+    expect(breadcrumb.text()).toContain('夏商周的更替')
+    expect(wrapper.get('h1').text()).toBe('夏商周的更替')
+    expect(wrapper.text()).toContain('梳理夏商周的建立、更替与西周分封等制度。')
     expect(wrapper.get('[data-test="lesson-people"]').text()).toContain('禹')
     expect(wrapper.get('[data-test="lesson-events"]').text()).toContain(
       '夏朝建立',
@@ -113,7 +113,7 @@ describe('TextbookLessonPage', () => {
       global: { plugins: [router] },
     })
 
-    expect(wrapper.get('h1').text()).toBe('夏商西周王朝的更替')
+    expect(wrapper.get('h1').text()).toBe('夏商周的更替')
     expect(wrapper.get('[data-test="lesson-people"]').text()).toContain('禹')
 
     await router.push('/textbooks/grade-7-down/lessons/g7d-lesson-01')

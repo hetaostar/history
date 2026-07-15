@@ -225,14 +225,14 @@ describe('EventListPage', () => {
     expect(
       wrapper.get('[data-test="event-lesson-memberships"]').text(),
     ).toContain('七年级上册')
-    expect(wrapper.get('[data-test="event-lesson-g7u-lesson-07"]').text()).toBe(
-      '第7课 百家争鸣',
+    expect(wrapper.get('[data-test="event-lesson-g7u-lesson-08"]').text()).toBe(
+      '第8课 百家争鸣',
     )
     expect(
       wrapper
-        .get('[data-test="event-lesson-g7u-lesson-07"]')
+        .get('[data-test="event-lesson-g7u-lesson-08"]')
         .attributes('href'),
-    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-07')
+    ).toBe('/textbooks/grade-7-up/lessons/g7u-lesson-08')
   })
 
   it('无效 event query 安全回落到卡片列表', async () => {
