@@ -409,6 +409,7 @@ const timelineTicks = computed(() =>
   calculateTimelineTicks(
     visibleYearRange.value.start,
     visibleYearRange.value.end,
+    { availableWidth: props.width },
   ),
 )
 

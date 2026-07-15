@@ -493,6 +493,16 @@ export interface ITimelineTicks {
   readonly minorTicks: readonly number[]
 }
 
+export interface ITimelineTickOptions {
+  readonly availableWidth: number
+  readonly minMajorTickSpacing?: number
+}
+
+const DEFAULT_MIN_MAJOR_TICK_SPACING = 96
+const NICE_TICK_STEPS = [
+  1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000,
+] as const
+
 interface ITickPlan {
   readonly firstTick: bigint
   readonly step: bigint
@@ -521,9 +531,50 @@ function createTicks(plan: ITickPlan): readonly number[] {
   )
 }
 
+function ceilToNiceStep(rawStep: number): number {
+  assertGreaterThanZero(rawStep, 'rawStep')
+  for (const step of NICE_TICK_STEPS) {
+    if (step >= rawStep) return step
+  }
+
+  const magnitude = 10 ** Math.ceil(Math.log10(rawStep))
+  for (const factor of [1, 2, 2.5, 5]) {
+    const step = magnitude * factor
+    if (step >= rawStep && Number.isSafeInteger(step)) return step
+  }
+
+  return magnitude * 10
+}
+
+function resolveMajorStepFromSpan(span: number): number {
+  if (span > 800) return 100
+  if (span > 300) return 50
+  if (span > 120) return 10
+  if (span > 40) return 5
+  return 1
+}
+
+function resolveMajorStepFromWidth(
+  span: number,
+  availableWidth: number,
+  minMajorTickSpacing: number,
+): number {
+  assertGreaterThanZero(availableWidth, 'availableWidth')
+  assertGreaterThanZero(minMajorTickSpacing, 'minMajorTickSpacing')
+
+  if (span <= 0) return 1
+
+  const targetCount = Math.max(
+    1,
+    Math.floor(availableWidth / minMajorTickSpacing),
+  )
+  return ceilToNiceStep(span / targetCount)
+}
+
 export function calculateTimelineTicks(
   firstYear: number,
   secondYear: number,
+  options?: ITimelineTickOptions,
 ): ITimelineTicks {
   assertSafeInteger(firstYear, 'firstYear')
   assertSafeInteger(secondYear, 'secondYear')
@@ -537,12 +588,14 @@ export function calculateTimelineTicks(
     throw new RangeError('timeline span must be a safe integer')
   }
   const span = Number(bigintSpan)
-  let majorStep = 1
-
-  if (span > 800) majorStep = 100
-  else if (span > 300) majorStep = 50
-  else if (span > 120) majorStep = 10
-  else if (span > 40) majorStep = 5
+  const majorStep =
+    options === undefined
+      ? resolveMajorStepFromSpan(span)
+      : resolveMajorStepFromWidth(
+          span,
+          options.availableWidth,
+          options.minMajorTickSpacing ?? DEFAULT_MIN_MAJOR_TICK_SPACING,
+        )
 
   const minorStep = majorStep >= 5 ? majorStep / 5 : null
   const majorPlan = createTickPlan(bigintStartYear, bigintEndYear, majorStep)
