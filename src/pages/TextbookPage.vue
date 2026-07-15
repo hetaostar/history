@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import RiverEventDetail from '@/components/RiverEventDetail.vue'
+import TextbookPersonDetail from '@/components/TextbookPersonDetail.vue'
 import TextbookRiverTimeline from '@/components/TextbookRiverTimeline.vue'
 import TextbookUnitList from '@/components/TextbookUnitList.vue'
-import { TEXTBOOKS } from '@/data/textbooks'
+import {
+  TEXTBOOK_LESSONS,
+  TEXTBOOK_PEOPLE,
+  TEXTBOOK_UNITS,
+  TEXTBOOKS,
+} from '@/data/textbooks'
+import type { IHistoricalEvent } from '@/domain/chinaRiverTypes'
+import { buildTextbookPeopleCatalog } from '@/domain/textbookPeopleCatalog'
 import {
   getTextbookById,
   getTextbookEvents,
@@ -12,48 +21,29 @@ import {
   getTextbookPeople,
   getTextbookUnits,
 } from '@/domain/textbookSelectors'
-import type { ITextbookLesson } from '@/domain/textbookTypes'
+import type { ITextbookPerson } from '@/domain/textbookTypes'
 
 const route = useRoute()
 const textbookId = computed(() => String(route.params.textbookId ?? ''))
 const textbook = computed(() => getTextbookById(textbookId.value))
+const peopleCatalog = buildTextbookPeopleCatalog(
+  TEXTBOOKS,
+  TEXTBOOK_PEOPLE,
+  TEXTBOOK_UNITS,
+  TEXTBOOK_LESSONS,
+)
 
-function appendLesson(
-  map: Map<string, ITextbookLesson[]>,
-  entityId: string,
-  lesson: ITextbookLesson,
-) {
-  const entityLessons = map.get(entityId)
-  if (entityLessons) {
-    entityLessons.push(lesson)
-  } else {
-    map.set(entityId, [lesson])
-  }
-}
+const selectedPerson = ref<ITextbookPerson | null>(null)
+const selectedEvent = ref<IHistoricalEvent | null>(null)
 
 const textbookContent = computed(() => {
   const id = textbookId.value
-  const lessons = getTextbookLessons(id)
-  const lessonsByPersonId = new Map<string, ITextbookLesson[]>()
-  const lessonsByEventId = new Map<string, ITextbookLesson[]>()
-
-  lessons.forEach((lesson) => {
-    lesson.personIds.forEach((personId) => {
-      appendLesson(lessonsByPersonId, personId, lesson)
-    })
-    lesson.eventIds.forEach((eventId) => {
-      appendLesson(lessonsByEventId, eventId, lesson)
-    })
-  })
-
   return {
     units: getTextbookUnits(id),
-    lessons,
+    lessons: getTextbookLessons(id),
     people: getTextbookPeople(id),
     events: getTextbookEvents(id),
     yearRange: getTextbookEventYearRange(id),
-    lessonsByPersonId,
-    lessonsByEventId,
   }
 })
 
@@ -72,13 +62,28 @@ const yearRangeLabel = computed(() => {
   return `${formatYear(yearRange.value.startYear)}—${formatYear(yearRange.value.endYear)}`
 })
 
-function lessonsForPerson(personId: string) {
-  return textbookContent.value.lessonsByPersonId.get(personId) ?? []
+function openPersonDetail(person: ITextbookPerson): void {
+  selectedEvent.value = null
+  selectedPerson.value = person
 }
 
-function lessonsForEvent(eventId: string) {
-  return textbookContent.value.lessonsByEventId.get(eventId) ?? []
+function openEventDetail(event: IHistoricalEvent): void {
+  selectedPerson.value = null
+  selectedEvent.value = event
 }
+
+function closePersonDetail(): void {
+  selectedPerson.value = null
+}
+
+function closeEventDetail(): void {
+  selectedEvent.value = null
+}
+
+watch(textbookId, () => {
+  selectedPerson.value = null
+  selectedEvent.value = null
+})
 </script>
 
 <template>
@@ -169,6 +174,25 @@ function lessonsForEvent(eventId: string) {
         <div data-test="textbook-learning" class="learning-sections">
           <section
             class="learning-section"
+            data-test="textbook-units"
+            aria-labelledby="units-title"
+          >
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Contents</p>
+                <h2 id="units-title">全部单元</h2>
+              </div>
+              <span>{{ units.length }} 单元 · {{ lessons.length }} 课</span>
+            </div>
+            <TextbookUnitList
+              :textbook-id="textbook.id"
+              :units="units"
+              :lessons="lessons"
+            />
+          </section>
+
+          <section
+            class="learning-section"
             data-test="textbook-people"
             aria-labelledby="people-title"
           >
@@ -180,26 +204,18 @@ function lessonsForEvent(eventId: string) {
               <span>{{ people.length }} 人</span>
             </div>
             <div class="entity-grid">
-              <details v-for="person in people" :key="person.id">
-                <summary>
-                  <strong>{{ person.name }}</strong>
-                  <span>{{ person.lifeTime }}</span>
-                </summary>
-                <p>{{ person.summary }}</p>
-                <h3>关联课程</h3>
-                <ul>
-                  <li
-                    v-for="lesson in lessonsForPerson(person.id)"
-                    :key="lesson.id"
-                  >
-                    <RouterLink
-                      :to="`/textbooks/${textbook.id}/lessons/${lesson.id}`"
-                    >
-                      第 {{ lesson.lessonNumber }} 课 {{ lesson.title }}
-                    </RouterLink>
-                  </li>
-                </ul>
-              </details>
+              <button
+                v-for="person in people"
+                :key="person.id"
+                class="entity-card-button"
+                type="button"
+                :data-test="`textbook-person-card-${person.id}`"
+                :aria-label="`查看${person.name}详情`"
+                @click="openPersonDetail(person)"
+              >
+                <strong>{{ person.name }}</strong>
+                <span>{{ person.lifeTime }}</span>
+              </button>
             </div>
           </section>
 
@@ -216,42 +232,19 @@ function lessonsForEvent(eventId: string) {
               <span>{{ events.length }} 件</span>
             </div>
             <div class="entity-grid event-grid">
-              <details v-for="event in events" :key="event.id">
-                <summary>
-                  <strong>{{ event.title }}</strong>
-                  <span>{{ formatYear(event.year) }}</span>
-                </summary>
-                <p v-if="event.description">{{ event.description }}</p>
-                <h3>关联课程</h3>
-                <ul>
-                  <li
-                    v-for="lesson in lessonsForEvent(event.id)"
-                    :key="lesson.id"
-                  >
-                    <RouterLink
-                      :to="`/textbooks/${textbook.id}/lessons/${lesson.id}`"
-                    >
-                      第 {{ lesson.lessonNumber }} 课 {{ lesson.title }}
-                    </RouterLink>
-                  </li>
-                </ul>
-              </details>
+              <button
+                v-for="event in events"
+                :key="event.id"
+                class="entity-card-button"
+                type="button"
+                :data-test="`textbook-event-card-${event.id}`"
+                :aria-label="`查看${event.title}详情`"
+                @click="openEventDetail(event)"
+              >
+                <strong>{{ event.title }}</strong>
+                <span>{{ formatYear(event.year) }}</span>
+              </button>
             </div>
-          </section>
-
-          <section class="learning-section" aria-labelledby="units-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Contents</p>
-                <h2 id="units-title">全部单元</h2>
-              </div>
-              <span>{{ units.length }} 单元 · {{ lessons.length }} 课</span>
-            </div>
-            <TextbookUnitList
-              :textbook-id="textbook.id"
-              :units="units"
-              :lessons="lessons"
-            />
           </section>
 
           <TextbookRiverTimeline
@@ -260,6 +253,22 @@ function lessonsForEvent(eventId: string) {
             :textbook-id="textbook.id"
           />
         </div>
+
+        <TextbookPersonDetail
+          v-if="selectedPerson"
+          :key="selectedPerson.id"
+          :person="selectedPerson"
+          :groups="peopleCatalog.groups"
+          @close="closePersonDetail"
+        />
+
+        <RiverEventDetail
+          v-if="selectedEvent"
+          :key="selectedEvent.id"
+          :event="selectedEvent"
+          read-only
+          @close="closeEventDetail"
+        />
       </template>
     </template>
   </section>
@@ -275,8 +284,7 @@ function lessonsForEvent(eventId: string) {
 
 .back-link,
 .primary-link,
-.textbook-switcher a,
-.entity-grid a {
+.textbook-switcher a {
   color: inherit;
   font-weight: 850;
   text-decoration: none;
@@ -290,7 +298,7 @@ function lessonsForEvent(eventId: string) {
 .back-link:focus-visible,
 .primary-link:focus-visible,
 .textbook-switcher a:focus-visible,
-.entity-grid a:focus-visible {
+.entity-card-button:focus-visible {
   outline: 3px solid var(--cinnabar);
   outline-offset: 3px;
 }
@@ -451,61 +459,36 @@ function lessonsForEvent(eventId: string) {
   gap: 12px;
 }
 
-.entity-grid details {
+.entity-card-button {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 16px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   background: var(--paper);
   border: 1px solid rgb(74 50 35 / 14%);
   border-radius: 16px;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
 }
 
-.entity-grid summary {
-  display: grid;
-  gap: 5px;
-  padding: 16px;
-  cursor: pointer;
+.entity-card-button:hover {
+  border-color: rgb(184 62 44 / 45%);
+  box-shadow: 0 14px 28px rgb(36 27 20 / 12%);
+  transform: translateY(-2px);
 }
 
-.entity-grid summary:focus-visible {
-  outline: 3px solid var(--cinnabar);
-  outline-offset: 2px;
-}
-
-.entity-grid summary strong {
+.entity-card-button strong {
   font-family: var(--font-display);
   font-size: 20px;
 }
 
-.entity-grid summary span,
-.entity-grid details > p {
+.entity-card-button span {
   color: var(--muted-ink);
-}
-
-.entity-grid details > p,
-.entity-grid details > h3,
-.entity-grid details > ul {
-  margin-right: 16px;
-  margin-left: 16px;
-}
-
-.entity-grid details > p {
-  line-height: 1.65;
-}
-
-.entity-grid details > h3 {
-  margin-bottom: 5px;
-  color: var(--cinnabar);
-  font-size: 13px;
-}
-
-.entity-grid ul {
-  display: grid;
-  gap: 7px;
-  padding: 0 0 16px;
-  list-style: none;
-}
-
-.entity-grid a {
-  color: var(--bronze);
-  line-height: 1.5;
 }
 
 @media (max-width: 900px) {
@@ -530,6 +513,12 @@ function lessonsForEvent(eventId: string) {
 
   .entity-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-card-button {
+    transition: none;
   }
 }
 </style>

@@ -1,5 +1,6 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import {
   getTextbookEvents,
@@ -31,9 +32,16 @@ async function mountPage(path: string) {
   await router.push(path)
   await router.isReady()
   return mount(TextbookPage, {
-    global: { plugins: [router] },
+    attachTo: document.body,
+    global: { plugins: [router, createPinia()] },
   })
 }
+
+beforeEach(() => {
+  document.body.innerHTML = ''
+  document.body.style.overflow = ''
+  setActivePinia(createPinia())
+})
 
 describe('TextbookPage', () => {
   it('作为 App 主内容内的 section 渲染而不嵌套 main', async () => {
@@ -46,6 +54,15 @@ describe('TextbookPage', () => {
 
   it('汇总已出版教材并展示人物、事件和全部单元', async () => {
     const wrapper = await mountPage('/textbooks/grade-7-up')
+    const learning = wrapper.get('[data-test="textbook-learning"]')
+    const sectionOrder = learning
+      .findAll(':scope > .learning-section, :scope > [data-test="textbook-river-timeline"]')
+      .map((section) => {
+        if (section.attributes('data-test') === 'textbook-river-timeline') {
+          return 'river'
+        }
+        return section.get('h2').text()
+      })
 
     expect(wrapper.get('h1').text()).toBe('七年级上册')
     expect(wrapper.text()).toContain(
@@ -65,6 +82,12 @@ describe('TextbookPage', () => {
       '夏朝建立',
     )
     expect(wrapper.findAll('.textbook-unit')).toHaveLength(4)
+    expect(sectionOrder).toEqual([
+      '全部单元',
+      '本册人物',
+      '本册事件',
+      'river',
+    ])
     expect(wrapper.text()).toContain('本册历史长河')
     expect(
       wrapper.find('[data-test="textbook-river-timeline"]').exists(),
@@ -77,38 +100,72 @@ describe('TextbookPage', () => {
   it.each([
     {
       textbookId: 'grade-7-up',
+      personId: 'g7u-confucius',
       personName: '孔子',
       personLesson: '百家争鸣',
+      eventId: 'china-event-0001',
       eventTitle: '夏朝建立',
       eventLesson: '夏商西周王朝的更替',
     },
     {
       textbookId: 'grade-7-down',
+      personId: 'g7d-li-shimin',
       personName: '唐太宗',
       personLesson: '唐朝建立与“贞观之治”',
+      eventId: 'china-event-0067',
       eventTitle: '隋灭陈/统一全国',
       eventLesson: '隋朝统一与灭亡',
     },
   ])(
-    '$textbookId 人物和事件展开内容列出关联课程',
+    '$textbookId 点击人物和事件卡片后弹层展示关联课程',
     async ({
       textbookId,
+      personId,
       personName,
       personLesson,
+      eventId,
       eventTitle,
       eventLesson,
     }) => {
       const wrapper = await mountPage(`/textbooks/${textbookId}`)
+      const personCard = wrapper.get(
+        `[data-test="textbook-person-card-${personId}"]`,
+      )
+      const eventCard = wrapper.get(
+        `[data-test="textbook-event-card-${eventId}"]`,
+      )
 
-      const personDetails = wrapper
-        .findAll('[data-test="textbook-people"] details')
-        .find((details) => details.text().includes(personName))
-      const eventDetails = wrapper
-        .findAll('[data-test="textbook-events"] details')
-        .find((details) => details.text().includes(eventTitle))
+      expect(personCard.text()).toContain(personName)
+      expect(personCard.text()).not.toContain(personLesson)
+      expect(eventCard.text()).toContain(eventTitle)
+      expect(eventCard.text()).not.toContain(eventLesson)
+      expect(wrapper.find('[data-test="textbook-person-detail"]').exists()).toBe(
+        false,
+      )
+      expect(wrapper.find('[data-test="event-detail-overlay"]').exists()).toBe(
+        false,
+      )
 
-      expect(personDetails?.text()).toContain(personLesson)
-      expect(eventDetails?.text()).toContain(eventLesson)
+      await personCard.trigger('click')
+      await flushPromises()
+
+      const personDetail = wrapper.get('[data-test="textbook-person-detail"]')
+      expect(personDetail.text()).toContain(personName)
+      expect(personDetail.text()).toContain(personLesson)
+
+      await wrapper.get('[data-test="close-person-detail"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-test="textbook-person-detail"]').exists()).toBe(
+        false,
+      )
+
+      await eventCard.trigger('click')
+      await flushPromises()
+
+      const eventDetail = wrapper.get('[data-test="event-detail-overlay"]')
+      expect(eventDetail.text()).toContain(eventTitle)
+      expect(eventDetail.text()).toContain(eventLesson)
+      expect(wrapper.find('[data-test="study-status"]').exists()).toBe(false)
     },
   )
 
@@ -195,23 +252,26 @@ describe('TextbookPage', () => {
     ).toBe(false)
   })
 
-  it('同一实例切换 textbookId 时同步更新聚合内容和错误状态', async () => {
+  it('同一实例切换 textbookId 时同步更新聚合内容并关闭弹层', async () => {
     const router = createTestRouter()
     await router.push('/textbooks/grade-7-up')
     await router.isReady()
     const wrapper = mount(TextbookPage, {
-      global: { plugins: [router] },
+      attachTo: document.body,
+      global: { plugins: [router, createPinia()] },
     })
 
     expect(wrapper.get('h1').text()).toBe('七年级上册')
     expect(wrapper.findAll('.textbook-unit')).toHaveLength(4)
     expect(wrapper.get('[data-test="textbook-people"]').text()).toContain('孔子')
-    expect(
-      wrapper
-        .findAll('[data-test="textbook-people"] details')
-        .find((details) => details.text().includes('孔子'))
-        ?.text(),
-    ).toContain('百家争鸣')
+
+    await wrapper
+      .get('[data-test="textbook-person-card-g7u-confucius"]')
+      .trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-test="textbook-person-detail"]').text()).toContain(
+      '百家争鸣',
+    )
 
     await router.push('/textbooks/grade-7-down')
     await wrapper.vm.$nextTick()
@@ -223,12 +283,14 @@ describe('TextbookPage', () => {
     expect(wrapper.get('[data-test="textbook-events"]').text()).toContain(
       '隋灭陈/统一全国',
     )
+    expect(wrapper.find('[data-test="textbook-person-detail"]').exists()).toBe(
+      false,
+    )
     expect(
       wrapper
-        .findAll('[data-test="textbook-people"] details')
-        .find((details) => details.text().includes('唐太宗'))
-        ?.text(),
-    ).toContain('唐朝建立与“贞观之治”')
+        .get('[data-test="textbook-person-card-g7d-li-shimin"]')
+        .text(),
+    ).toContain('唐太宗')
 
     await router.push('/textbooks/grade-8-up')
     await wrapper.vm.$nextTick()
